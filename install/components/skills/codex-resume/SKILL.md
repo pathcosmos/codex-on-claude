@@ -34,6 +34,30 @@ codex exec resume --skip-git-repo-check --json <threadId> "<후속 prompt>"
 
 resume이 성공하면 같은 `threadId`로 다시 `mcp__codex__codex-reply`도 동작할 수 있다. 다음 turn부터는 `/codex-followup`을 우선 시도해도 된다.
 
+## Thread persistence integration (if `--threads != off`)
+
+영속 카탈로그가 활성화되어 있으면, **재개를 시도하기 전에** 카탈로그에서 fallback 전략을 먼저 확인하라:
+
+```sh
+codex-on-claude threads show <threadId>          # fallbackStrategy 확인
+codex-on-claude threads resume <threadId> "<후속 prompt>"
+# 내부적으로:
+#  - auto-resume → 즉시 `codex exec resume` 실행
+#  - ask         → 사용자에게 어떤 방식으로 진행할지 물어보고 결정
+#  - new         → 같은 cwd/sandbox로 새 mcp__codex__codex 호출 권장 (이전 summaries 요약을 prefix로)
+```
+
+문제가 발생한 시점에는 incident도 함께 기록한다 (full 모드).
+
+```sh
+codex-on-claude threads incident <threadId> \
+  --issue=session-not-found \
+  --resolution="codex exec resume" \
+  --outcome=recovered
+```
+
+같은 threadId에 incident가 3건 이상 쌓이면 `/codex-analyze`가 fallbackStrategy 변경(예: `ask` → `new`)을 권할 수 있다.
+
 ## Guardrails
 - resume에 전달하는 prompt에 민감 정보(토큰, 비밀번호)를 그대로 넣지 않는다.
 - `threadId`는 메인 컨텍스트에 그대로 노출해도 무방하다 (식별자일 뿐).

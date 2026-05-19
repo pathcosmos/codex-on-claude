@@ -33,6 +33,22 @@ arguments:
 
 이때는 자동으로 `/codex-resume`을 제안한다. `codex exec resume`은 디스크에 저장된 세션을 복구할 수 있다.
 
+## Thread persistence (if `--threads != off`)
+
+후속 응답을 받은 직후 turn 카운트를 올리고, full 모드면 요점을 한 줄로 기록한다.
+
+```sh
+codex-on-claude threads new <threadId> --skill=codex-followup --bump-turn
+# full 모드:
+codex-on-claude threads outcome <threadId> "Follow-up answered: ..."
+```
+
+먼저 카탈로그에 있는지 보고 싶을 때:
+
+```sh
+codex-on-claude threads show <threadId>
+```
+
 ## Guardrails
 - `threadId`가 없거나 형식이 이상하면(예: 임의의 단어, 빈 값) 호출하지 않는다. 사용자에게 다시 확인한다.
 - Sandbox는 이전 세션과 동일하게 유지된다. 별도로 모드를 바꿔야 한다면 새 `mcp__codex__codex` 호출을 권한다.

@@ -16,6 +16,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 import readline from "node:readline";
 import { runAnalyze, recordDecision, appendLog } from "./analyze.mjs";
+import * as threads from "./threads.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -277,7 +278,7 @@ async function offerMcpRegister(manifest, autoYes) {
   }
 }
 
-function selectedSkills(manifest, patterns, improvementLoop) {
+function selectedSkills(manifest, patterns, improvementLoop, threadsMode) {
   const set = new Set();
   for (const ch of manifest.questions.patterns.choices) {
     if (patterns.includes(ch.key)) {
@@ -290,7 +291,16 @@ function selectedSkills(manifest, patterns, improvementLoop) {
     set.add("codex-improve");
     set.add("codex-log");
   }
+  const threadsChoice = manifest.questions.threads?.choices.find((c) => c.key === threadsMode);
+  if (threadsChoice?.installThreadsSkill) {
+    set.add("codex-threads");
+  }
   return [...set];
+}
+
+function threadsEnabled(manifest, threadsMode) {
+  const ch = manifest.questions.threads?.choices.find((c) => c.key === threadsMode);
+  return ch ? !!ch.enableThreads : false;
 }
 
 function shouldInstallAgent(manifest, contextPolicy) {
@@ -309,15 +319,19 @@ function loggingEnabled(manifest, improvementLoop) {
 }
 
 async function applyInstallation(manifest, choices, previousState) {
-  const desiredSkills = new Set(selectedSkills(manifest, choices.patterns, choices.improvementLoop));
+  const desiredSkills = new Set(selectedSkills(manifest, choices.patterns, choices.improvementLoop, choices.threads));
   const desiredAgent = shouldInstallAgent(manifest, choices.contextPolicy);
   const desiredPlugin = shouldInstallPluginBundle(manifest, choices.shareScope);
   const desiredLogging = loggingEnabled(manifest, choices.improvementLoop);
+  const desiredThreads = threadsEnabled(manifest, choices.threads);
 
   if (desiredLogging) {
     await fs.mkdir(path.join(STATE_DIR, "logs"), { recursive: true });
     await fs.mkdir(path.join(STATE_DIR, "reports"), { recursive: true });
     await fs.mkdir(path.join(STATE_DIR, "improvements"), { recursive: true });
+  }
+  if (desiredThreads) {
+    await fs.mkdir(path.join(STATE_DIR, "threads"), { recursive: true });
   }
 
   const installed = { skills: [], agent: null, pluginBundle: null, removed: [] };
@@ -413,6 +427,7 @@ async function cmdStatus() {
   log(`  contextPolicy: ${state.choices.contextPolicy}`);
   log(`  shareScope: ${state.choices.shareScope}`);
   log(`  improvementLoop: ${state.choices.improvementLoop || "(unset)"}`);
+  log(`  threads: ${state.choices.threads || "(unset)"}`);
   log(`  설치된 Skills: ${(state.installed?.skills || []).join(", ") || "(none)"}`);
   log(`  설치된 Agent: ${state.installed?.agent || "(none)"}`);
   log(`  설치된 Plugin 번들: ${state.installed?.pluginBundle || "(none)"}`);
@@ -457,6 +472,144 @@ async function cmdSuggest(args) {
   if (decision === "applied" && cand.applyHint) {
     info(`적용 명령: ${cand.applyHint}`);
     info("위 명령을 직접 실행하거나, /codex-improve Skill을 호출해 안내를 받으세요.");
+  }
+}
+
+async function cmdThreads(args) {
+  const sub = args._[1];
+  const f = args.flags;
+  const tid = args._[2];
+  switch (sub) {
+    case "list": {
+      const items = await threads.listAll({
+        status: typeof f.status === "string" ? f.status : undefined,
+        tag: typeof f.tag === "string" ? f.tag : undefined,
+        since: typeof f.since === "string" ? f.since : undefined,
+        originatingSkill: typeof f.skill === "string" ? f.skill : undefined,
+        limit: parseInt(f.limit, 10) || 50,
+      });
+      process.stdout.write(threads.renderList(items) + "\n");
+      return;
+    }
+    case "show": {
+      const t = await threads.get(tid);
+      if (!t) { err(`thread not found: ${tid}`); process.exit(1); }
+      process.stdout.write(threads.renderShow(t) + "\n");
+      return;
+    }
+    case "new": case "upsert": case "touch": {
+      if (!tid) { err("threadId required"); process.exit(1); }
+      const t = await threads.createOrUpdate(tid, {
+        title: typeof f.title === "string" ? f.title : undefined,
+        tags: typeof f.tags === "string" ? f.tags.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+        originatingSkill: typeof f.skill === "string" ? f.skill : undefined,
+        originatingCwd: typeof f.cwd === "string" ? f.cwd : undefined,
+        scope: (typeof f.files === "string" || typeof f.sandbox === "string" || typeof f["approval-policy"] === "string") ? {
+          files: typeof f.files === "string" ? f.files.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+          sandbox: typeof f.sandbox === "string" ? f.sandbox : undefined,
+          approvalPolicy: typeof f["approval-policy"] === "string" ? f["approval-policy"] : undefined,
+        } : undefined,
+        fallbackStrategy: typeof f.fallback === "string" ? f.fallback : undefined,
+        bumpTurn: f["bump-turn"] === true || f["bump-turn"] === "true",
+      });
+      ok(`upsert: ${t.threadId}  (turns=${t.turnCount})`);
+      return;
+    }
+    case "goal": case "outcome": case "decision": case "note": {
+      const text = args._.slice(3).join(" ");
+      if (!tid || !text) { err("usage: threads <kind> <threadId> \"text...\""); process.exit(1); }
+      await threads.addSummary(tid, sub, text);
+      ok(`${sub} added to ${tid}`);
+      return;
+    }
+    case "incident": {
+      if (!tid) { err("threadId required"); process.exit(1); }
+      await threads.addIncident(tid, {
+        issue: typeof f.issue === "string" ? f.issue : "",
+        resolution: typeof f.resolution === "string" ? f.resolution : "",
+        outcome: typeof f.outcome === "string" ? f.outcome : null,
+      });
+      ok(`incident recorded for ${tid}`);
+      return;
+    }
+    case "tag": {
+      if (!tid) { err("threadId required"); process.exit(1); }
+      const add = typeof f.add === "string" ? f.add.split(",").map((s) => s.trim()).filter(Boolean) : [];
+      const remove = typeof f.remove === "string" ? f.remove.split(",").map((s) => s.trim()).filter(Boolean) : [];
+      const t = await threads.setTags(tid, { add, remove });
+      ok(`tags: ${(t.tags || []).join(", ") || "(none)"}`);
+      return;
+    }
+    case "status": {
+      if (!tid || !args._[3]) { err("usage: threads status <id> <active|resolved|archived>"); process.exit(1); }
+      await threads.setStatus(tid, args._[3]);
+      ok(`status → ${args._[3]}`);
+      return;
+    }
+    case "fallback": {
+      if (!tid || !args._[3]) { err("usage: threads fallback <id> <auto-resume|ask|new>"); process.exit(1); }
+      await threads.setFallback(tid, args._[3]);
+      ok(`fallback → ${args._[3]}`);
+      return;
+    }
+    case "search": {
+      const q = args._.slice(2).join(" ");
+      if (!q) { err("usage: threads search \"query\""); process.exit(1); }
+      const items = await threads.search(q, { limit: parseInt(f.limit, 10) || 25 });
+      process.stdout.write(threads.renderList(items) + "\n");
+      return;
+    }
+    case "remove": case "delete": {
+      if (!tid) { err("threadId required"); process.exit(1); }
+      const removed = await threads.remove(tid);
+      ok(removed ? `removed: ${tid}` : `not found: ${tid}`);
+      return;
+    }
+    case "resume": {
+      if (!tid) { err("threadId required"); process.exit(1); }
+      const prompt = args._.slice(3).join(" ");
+      const t = await threads.get(tid);
+      if (!t) { err(`thread not found: ${tid}`); process.exit(1); }
+      const strategy = t.fallbackStrategy || "ask";
+      if (strategy === "ask") {
+        info(`thread ${tid} fallback=ask — 직접 codex exec resume / mcp__codex__codex-reply 중 선택해 진행`);
+        info(`  메타: title="${t.title || ""}" tags=${(t.tags||[]).join(",")} skill=${t.originatingSkill}`);
+        info(`  최근 summaries: ${(t.summaries||[]).slice(-3).map((s)=>`[${s.kind}] ${s.text}`).join(" | ") || "(none)"}`);
+        return;
+      }
+      if (strategy === "new") {
+        info(`thread ${tid} fallback=new — 같은 cwd/sandbox로 새 mcp__codex__codex 호출 권장`);
+        info(`  hint cwd=${t.originatingCwd || "?"} sandbox=${t.scope?.sandbox || "?"}`);
+        return;
+      }
+      // auto-resume
+      if (!prompt) { err("usage: threads resume <id> \"prompt...\""); process.exit(1); }
+      info(`auto-resume via: codex exec resume --skip-git-repo-check --json ${tid} "<prompt>"`);
+      const r = await run("codex", ["exec", "resume", "--skip-git-repo-check", "--json", tid, prompt]);
+      if (r.code === 0) {
+        ok("resume succeeded");
+        await threads.createOrUpdate(tid, { bumpTurn: true });
+        process.stdout.write(r.stdout);
+      } else {
+        err(`resume failed (code ${r.code})`);
+        await threads.addIncident(tid, { issue: "auto-resume-failed", resolution: r.stderr.split("\n")[0] || "unknown", outcome: "open" });
+      }
+      return;
+    }
+    default:
+      process.stdout.write(`threads subcommands:
+  list [--status=active|resolved|archived] [--tag=...] [--since=7d|2026-05-01] [--skill=...] [--limit=N]
+  show <id>
+  new|upsert|touch <id> [--title="..."] [--tags=a,b] [--skill=...] [--cwd=...] [--sandbox=read-only] [--files=a,b] [--approval-policy=...] [--fallback=auto-resume|ask|new] [--bump-turn]
+  goal|outcome|decision|note <id> "text..."
+  incident <id> --issue=... --resolution=... [--outcome=...]
+  tag <id> [--add=a,b] [--remove=c,d]
+  status <id> <active|resolved|archived>
+  fallback <id> <auto-resume|ask|new>
+  search "query..." [--limit=N]
+  resume <id> ["prompt..."]
+  remove|delete <id>
+`);
   }
 }
 
@@ -521,6 +674,7 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
     contextPolicy: previousState?.choices?.contextPolicy,
     shareScope: previousState?.choices?.shareScope,
     improvementLoop: previousState?.choices?.improvementLoop,
+    threads: previousState?.choices?.threads,
   };
 
   // Flag overrides
@@ -528,6 +682,7 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   const flagCtx = args.flags["context-policy"];
   const flagShare = args.flags["share-scope"];
   const flagLoop = args.flags["improvement-loop"];
+  const flagThreads = args.flags["threads"];
   const autoYes = args.flags["yes"] === true || args.flags["y"] === true;
 
   // Preflight: verify Claude Code + Codex CLI presence
@@ -574,11 +729,19 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
       defaults.improvementLoop || "on-demand"
     ));
 
+  const threadsAns = typeof flagThreads === "string" ? flagThreads
+    : (autoYes ? (defaults.threads || "basic") : await askSingle(
+      manifest.questions.threads.label,
+      manifest.questions.threads.choices,
+      defaults.threads || "basic"
+    ));
+
   const choices = {
     patterns: patternsAns,
     contextPolicy: ctxAns,
     shareScope: shareAns,
     improvementLoop: loopAns,
+    threads: threadsAns,
   };
 
   log(`\n${c.bold}3. 적용${c.reset}`);
@@ -586,6 +749,7 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   log(`  contextPolicy: ${choices.contextPolicy}`);
   log(`  shareScope: ${choices.shareScope}`);
   log(`  improvementLoop: ${choices.improvementLoop}`);
+  log(`  threads: ${choices.threads}`);
 
   if (!autoYes) {
     const confirm = (await prompt("\n이 설정으로 적용할까요? [Y/n] ")).toLowerCase();
@@ -655,6 +819,10 @@ async function main() {
     await cmdLog(args);
     return;
   }
+  if (sub === "threads") {
+    await cmdThreads(args);
+    return;
+  }
   if (sub === "help" || args.flags.help) {
     log(`Usage:
   codex-on-claude               설치 (인터랙티브, 사전 점검 포함)
@@ -665,12 +833,14 @@ async function main() {
   codex-on-claude analyze       사용 로그 분석 및 개선 후보 표시
   codex-on-claude suggest       특정 후보 채택/거부 기록
   codex-on-claude log           수동으로 사용 기록 추가
+  codex-on-claude threads ...   영속 thread 카탈로그 관리 (list/show/new/note/resume 등)
 
 Install flags:
   --patterns=review,followup,fix,routine
   --context-policy=direct|summarize|mixed
   --share-scope=local|projects|team
   --improvement-loop=off|on-demand|periodic
+  --threads=off|basic|full
   --yes, -y                     모든 확인 자동 수락
 
 Analyze flags:
@@ -688,11 +858,27 @@ Log flags (모두 옵션):
   --via-agent=true --outcome=ok|session-not-found|tool-error|timeout
   --error-kind=... --notes="..."
 
+Threads subcommand:
+  threads list [--status=...] [--tag=...] [--since=7d] [--skill=...]
+  threads show <id>
+  threads new <id> [--title="..."] [--tags=a,b] [--skill=...] [--cwd=...] [--sandbox=read-only] [--files=a,b] [--fallback=auto-resume|ask|new]
+  threads goal|outcome|decision|note <id> "text..."
+  threads incident <id> --issue=... --resolution=... [--outcome=...]
+  threads tag <id> [--add=a,b] [--remove=c,d]
+  threads status <id> <active|resolved|archived>
+  threads fallback <id> <auto-resume|ask|new>
+  threads search "query..."
+  threads resume <id> ["prompt..."]
+  threads remove <id>
+
 Examples:
-  codex-on-claude --patterns=review,followup --context-policy=mixed --share-scope=local --improvement-loop=on-demand --yes
+  codex-on-claude --patterns=review,followup --context-policy=mixed --share-scope=local --improvement-loop=on-demand --threads=basic --yes
   npx codex-on-claude reconfigure
   codex-on-claude analyze --days=7 --format=markdown --save
   codex-on-claude suggest --apply=2
+  codex-on-claude threads new 019e1234-... --title="Review PR #42" --tags=review,react --skill=codex-review --cwd="$PWD"
+  codex-on-claude threads outcome 019e1234-... "Codex flagged 3 prop inconsistencies"
+  codex-on-claude threads resume 019e1234-... "Continue from prior context"
 `);
     return;
   }

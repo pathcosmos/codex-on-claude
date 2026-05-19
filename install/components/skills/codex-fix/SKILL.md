@@ -44,6 +44,30 @@ arguments:
 - 허용 목록 밖 파일이 수정되었으면 즉시 사용자에게 경고하고, 필요한 경우 git을 통해 되돌릴 것을 안내한다 (직접 되돌리지 않음).
 - `threadId`를 보관해 후속 수정/검증에 `/codex-followup`을 사용할 수 있게 한다.
 
+## Thread persistence (if `--threads != off`)
+
+수정 위임의 결과는 추적 가치가 특히 높다 — 누가, 언제, 무엇을 고치도록 했는지가 카탈로그에 남아야 한다.
+
+```sh
+codex-on-claude threads new <threadId> \
+  --title="Fix: <한 줄 요약>" \
+  --tags=fix[,...] \
+  --skill=codex-fix --cwd="$PWD" --sandbox=workspace-write \
+  --files=<허용 파일 목록 그대로>
+codex-on-claude threads decision <threadId> "위임된 수정 범위: ..."
+# 적용 후 (full 모드):
+codex-on-claude threads outcome <threadId> "Edited N files: ..."
+```
+
+Codex가 `NEEDS_OUT_OF_SCOPE_FILES`로 응답했다면 incident로 기록:
+
+```sh
+codex-on-claude threads incident <threadId> \
+  --issue=out-of-scope-files-needed \
+  --resolution="사용자 확인 후 허용 목록 확장 또는 분할" \
+  --outcome=blocked
+```
+
 ## Verification
 설치 직후 다음으로 동작 점검 (실제 수정 없이 dry-run prompt):
 

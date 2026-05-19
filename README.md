@@ -98,12 +98,13 @@ codex-on-claude \
   --context-policy=mixed \
   --share-scope=local \
   --improvement-loop=on-demand \
+  --threads=basic \
   --yes
 ```
 
 ---
 
-## 설치 시 묻는 네 가지 옵션
+## 설치 시 묻는 다섯 가지 옵션 (v0.2+)
 
 각 답에 따라 설치되는 컴포넌트가 달라진다. 모든 옵션은 나중에 `codex-on-claude reconfigure`로 변경 가능.
 
@@ -142,6 +143,22 @@ codex-on-claude \
 
 > 로깅은 **메타데이터만** 기록한다. prompt/response 본문은 절대 기록하지 않음. 외부 전송 없음. `chmod 700`. 언제든 `~/.claude/codex-on-claude/logs/` 삭제 가능.
 
+### 5. Thread 영속 저장 (single, v0.2+)
+
+| 선택 | 결과 |
+|---|---|
+| `off` | thread 카탈로그 사용 안 함 |
+| `basic` (추천) | `threadId + title + tags + lastUsed + turnCount` 만 저장 |
+| `full` | 위에 더해 `goal/outcome/decision/note` 작업 문맥 + `incidents` + `fallbackStrategy` 까지 |
+
+저장 위치: `~/.claude/codex-on-claude/threads/<threadId>.json` + `index.json`. 외부 전송 없음. prompt/response 본문은 저장 안 함 — 사용자/Skill이 명시적으로 작성한 짧은 메모만 들어간다.
+
+활용:
+
+- 새 세션·새 머신에서 과거 Codex 작업을 `threads list/search`로 찾고 `threads resume`으로 이어간다
+- `codex-reply`가 실패하면 thread 메타의 `fallbackStrategy`에 따라 자동 처리 (`auto-resume` / `ask` / `new`)
+- 같은 thread에 incident가 누적되면 `analyze`가 fallback 전략 변경을 권장
+
 ---
 
 ## 설치 후 받는 도구
@@ -157,6 +174,7 @@ codex-on-claude \
 - `codex-analyze` — 사용 로그 분석 + 개선 후보 표시 *(개선 루프 활성화 시)*
 - `codex-improve` — 특정 개선 후보 채택/거부 *(개선 루프 활성화 시)*
 - `codex-log` — Codex 호출 메타 로깅 *(개선 루프 활성화 시)*
+- `codex-threads` — 영속 thread 카탈로그 탐색/주석/재개 *(threads ≠ off, v0.2+)*
 
 ### Agent (`~/.claude/agents/codex-reviewer.md`)
 대량 응답을 격리 컨텍스트에서 처리하고 메인엔 요약만 반환. 컨텍스트 정책이 `summarize` 또는 `mixed`일 때 설치.
@@ -219,7 +237,26 @@ codex-on-claude uninstall     설치된 컴포넌트 제거
 codex-on-claude analyze       사용 로그 분석 및 개선 후보 표시
 codex-on-claude suggest       특정 후보 채택/거부 기록
 codex-on-claude log           수동으로 사용 기록 추가
+codex-on-claude threads ...   영속 thread 카탈로그 관리 (v0.2+)
 codex-on-claude help          도움말
+```
+
+### threads 서브커맨드 (v0.2+)
+
+```sh
+codex-on-claude threads list [--status=active|resolved|archived] [--tag=...] [--since=7d]
+codex-on-claude threads show <threadId>
+codex-on-claude threads new  <threadId> --title="..." --tags=a,b --skill=codex-review --cwd="$PWD" --sandbox=read-only
+codex-on-claude threads goal     <threadId> "Verify naming consistency"
+codex-on-claude threads outcome  <threadId> "Codex flagged 3 issues"
+codex-on-claude threads decision <threadId> "Adopt suggestion 2"
+codex-on-claude threads note     <threadId> "임의 메모"
+codex-on-claude threads incident <threadId> --issue=session-not-found --resolution="codex exec resume" --outcome=recovered
+codex-on-claude threads tag      <threadId> --add=critical --remove=draft
+codex-on-claude threads status   <threadId> resolved
+codex-on-claude threads fallback <threadId> auto-resume
+codex-on-claude threads search   "react refactor"
+codex-on-claude threads resume   <threadId> "후속 prompt"
 ```
 
 ### 자주 쓰는 조합

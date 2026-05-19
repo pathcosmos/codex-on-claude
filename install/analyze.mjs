@@ -10,6 +10,7 @@ const ROOT = path.join(HOME, ".claude", "codex-on-claude");
 const LOG_DIR = path.join(ROOT, "logs");
 const REPORT_DIR = path.join(ROOT, "reports");
 const IMPR_DIR = path.join(ROOT, "improvements");
+const THREADS_DIR = path.join(ROOT, "threads");
 const STATE_FILE = path.join(ROOT, "config.json");
 
 async function pathExists(p) { try { await fs.access(p); return true; } catch { return false; } }
@@ -164,6 +165,66 @@ function ruleNoLogs(entries) {
   }];
 }
 
+async function loadThreads() {
+  try {
+    const files = await fs.readdir(THREADS_DIR);
+    const items = [];
+    for (const f of files) {
+      if (f === "index.json" || !f.endsWith(".json")) continue;
+      try { items.push(JSON.parse(await fs.readFile(path.join(THREADS_DIR, f), "utf8"))); } catch { /* skip */ }
+    }
+    return items;
+  } catch { return []; }
+}
+
+function ruleStaleActiveThreads(_entries, threadsList) {
+  const cutoff = Date.now() - 14 * 86400_000;
+  const stale = threadsList.filter((t) => t.status === "active" && new Date(t.lastUsedAt || 0).getTime() < cutoff);
+  if (stale.length < 3) return [];
+  return [{
+    id: "stale-active-threads",
+    category: "thread-hygiene",
+    title: "오래된 active thread 정리",
+    finding: `${stale.length}개 active thread가 14일 이상 미사용입니다 (예: ${stale.slice(0, 3).map((t) => t.title || t.threadId.slice(0, 8)).join(", ")}).`,
+    recommendation: "결론이 났다면 status를 resolved 또는 archived로 바꿔 카탈로그 노이즈를 줄이세요.",
+    applyHint: `codex-on-claude threads status <id> resolved`,
+  }];
+}
+
+function ruleIncidentRepeat(_entries, threadsList) {
+  const repeated = threadsList.filter((t) => (t.incidents || []).length >= 3);
+  if (!repeated.length) return [];
+  return repeated.slice(0, 3).map((t) => ({
+    id: `incident-repeat-${t.threadId.slice(0, 8)}`,
+    category: "reliability",
+    title: `thread ${t.threadId.slice(0, 8)}… 에 incident가 ${t.incidents.length}건 누적`,
+    finding: `같은 thread에 incident가 3건 이상 — fallback 전략이 부적합할 수 있습니다.`,
+    recommendation: t.fallbackStrategy === "ask"
+      ? "fallbackStrategy를 'new' 또는 'auto-resume'으로 바꿔 자동 처리로 전환을 검토하세요."
+      : "fallbackStrategy 변경 또는 thread를 archive하고 새로 시작하는 것을 검토하세요.",
+    applyHint: `codex-on-claude threads fallback ${t.threadId} new`,
+  }));
+}
+
+function ruleSimilarTagCluster(_entries, threadsList) {
+  const tagCount = new Map();
+  for (const t of threadsList) {
+    for (const tag of (t.tags || [])) {
+      tagCount.set(tag, (tagCount.get(tag) || 0) + 1);
+    }
+  }
+  const heavy = [...tagCount.entries()].filter(([, n]) => n >= 5).sort((a, b) => b[1] - a[1]);
+  if (!heavy.length) return [];
+  return [{
+    id: "tag-cluster-routine",
+    category: "new-skill-or-routine",
+    title: "같은 태그의 thread가 여러 개 — routine/통합 후보",
+    finding: `태그 "${heavy[0][0]}" 가 ${heavy[0][1]}개 thread에 반복 사용됩니다.`,
+    recommendation: "이 패턴을 /codex-routine으로 등록하거나 상위 thread를 만들어 결과를 모으세요.",
+    applyHint: `codex-on-claude threads list --tag=${heavy[0][0]}`,
+  }];
+}
+
 const RULES = [
   ruleLargeResponsesNotAgent,
   ruleRepeatedPrompts,
@@ -171,6 +232,12 @@ const RULES = [
   ruleSessionNotFound,
   ruleTimeouts,
   ruleNoLogs,
+];
+
+const THREAD_RULES = [
+  ruleStaleActiveThreads,
+  ruleIncidentRepeat,
+  ruleSimilarTagCluster,
 ];
 
 function filterRecentlyDismissed(candidates, improvements) {
@@ -187,9 +254,13 @@ export async function runAnalyze({ days = 14, format = "text", save = false } = 
   const entries = await loadEntries(days);
   const config = await loadConfig();
   const improvements = await loadRecentImprovements();
+  const threadsList = await loadThreads();
   const summary = summarize(entries);
+  summary.threadsTotal = threadsList.length;
+  summary.threadsActive = threadsList.filter((t) => t.status === "active").length;
   let candidates = [];
   for (const rule of RULES) candidates.push(...rule(entries));
+  for (const rule of THREAD_RULES) candidates.push(...rule(entries, threadsList));
   candidates = filterRecentlyDismissed(candidates, improvements);
 
   const report = {
@@ -221,6 +292,9 @@ function renderText(r) {
   lines.push(`  total calls: ${r.summary.total} | ok ${r.summary.ok} | failed ${r.summary.failed}`);
   lines.push(`  avg response: ${(r.summary.avgResponse / 1024).toFixed(1)} KB | p95: ${(r.summary.p95Response / 1024).toFixed(1)} KB`);
   lines.push(`  via agent: ${r.summary.viaAgent} / ${r.summary.total}`);
+  if (r.summary.threadsTotal !== undefined) {
+    lines.push(`  threads: ${r.summary.threadsTotal} total / ${r.summary.threadsActive} active`);
+  }
   lines.push("");
   if (!r.candidates.length) {
     lines.push("개선 후보 없음. 현재 사용 패턴이 양호하거나 데이터가 부족합니다.");
@@ -250,6 +324,9 @@ function renderMarkdown(r) {
   lines.push(`- Total calls: ${r.summary.total} (ok ${r.summary.ok}, failed ${r.summary.failed})`);
   lines.push(`- Avg response: ${(r.summary.avgResponse / 1024).toFixed(1)} KB, p95 ${(r.summary.p95Response / 1024).toFixed(1)} KB`);
   lines.push(`- Routed via subagent: ${r.summary.viaAgent}/${r.summary.total}`);
+  if (r.summary.threadsTotal !== undefined) {
+    lines.push(`- Threads: ${r.summary.threadsTotal} total, ${r.summary.threadsActive} active`);
+  }
   lines.push(``);
   if (!r.candidates.length) {
     lines.push(`## Candidates`);

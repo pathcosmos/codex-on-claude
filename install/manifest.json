@@ -1,6 +1,6 @@
 {
   "$schema": "./manifest.schema.json",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "name": "codex-on-claude",
   "description": "Install bridge components that let Claude Code call OpenAI Codex CLI via MCP.",
   "questions": {
@@ -96,6 +96,34 @@
           "schedule": "weekly"
         }
       ]
+    },
+    "threads": {
+      "type": "single",
+      "label": "Thread 영속 저장 / persistent thread catalog",
+      "choices": [
+        {
+          "key": "off",
+          "label": "끔 / disabled (no catalog)",
+          "enableThreads": false,
+          "installThreadsSkill": false
+        },
+        {
+          "key": "basic",
+          "label": "기본 — threadId + title/tags/lastUsed (권장 default)",
+          "enableThreads": true,
+          "installThreadsSkill": true,
+          "captureSummaries": false,
+          "captureIncidents": false
+        },
+        {
+          "key": "full",
+          "label": "전체 — 작업 문맥(goal/outcome/decision/note) + incidents + fallbackStrategy",
+          "enableThreads": true,
+          "installThreadsSkill": true,
+          "captureSummaries": true,
+          "captureIncidents": true
+        }
+      ]
     }
   },
   "agent": {
@@ -135,6 +163,10 @@
     "codex-log": {
       "source": "components/skills/codex-log",
       "target": "skills/codex-log"
+    },
+    "codex-threads": {
+      "source": "components/skills/codex-threads",
+      "target": "skills/codex-threads"
     }
   },
   "pluginBundle": {

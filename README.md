@@ -24,10 +24,17 @@ codex-on-claude
 
 설치 스크립트는 다음을 자동으로 수행한다:
 
-1. `claude mcp` 등록 상태 확인 → 미등록이면 `codex` MCP server를 user-scope로 등록 제안
-2. 네 가지 옵션 인터랙티브 질문 → 답에 따라 Skill/Agent/Plugin을 `~/.claude/` 아래에 배치
-3. 사용 로그/분석/개선 루프 활성화 (옵트인)
-4. 다음번에 `codex-on-claude reconfigure` 한 번이면 옵션을 다시 바꿀 수 있다
+1. **사전 점검(preflight)** — Node 18.17+, `codex`, `claude` 가 PATH에 있는지 확인. `codex doctor`와 `claude auth status`도 자동으로 점검. 누락된 항목이 있으면 설치 안내와 함께 중단할지 묻는다.
+2. `claude mcp` 등록 상태 확인 → 미등록이면 `codex` MCP server를 user-scope로 등록 제안
+3. 네 가지 옵션 인터랙티브 질문 → 답에 따라 Skill/Agent/Plugin을 `~/.claude/` 아래에 배치
+4. 사용 로그/분석/개선 루프 활성화 (옵트인)
+5. 다음번에 `codex-on-claude reconfigure` 한 번이면 옵션을 다시 바꿀 수 있다
+
+사전 점검만 단독으로 돌리려면:
+
+```sh
+codex-on-claude doctor
+```
 
 ---
 
@@ -204,8 +211,9 @@ codex-on-claude \
 ## CLI 레퍼런스
 
 ```
-codex-on-claude               설치 (인터랙티브)
+codex-on-claude               설치 (인터랙티브, 사전 점검 포함)
 codex-on-claude reconfigure   옵션 재선택 (기존 답을 기본값으로)
+codex-on-claude doctor        사전 점검만 단독 실행
 codex-on-claude status        현재 설치 상태 표시
 codex-on-claude uninstall     설치된 컴포넌트 제거
 codex-on-claude analyze       사용 로그 분석 및 개선 후보 표시

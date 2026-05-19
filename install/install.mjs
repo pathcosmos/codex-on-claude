@@ -163,6 +163,84 @@ function parseListFlag(v) {
   return String(v).split(",").map((s) => s.trim()).filter(Boolean);
 }
 
+async function preflight({ autoYes }) {
+  log(`${c.bold}0. 사전 점검 / Preflight${c.reset}`);
+  const codexPath = which("codex");
+  const claudePath = which("claude");
+  let nodeOk = true;
+  const nodeMajor = parseInt(process.versions.node.split(".")[0], 10);
+  if (nodeMajor < 18) {
+    err(`Node.js ${process.versions.node} — 18.17+ 필요`);
+    nodeOk = false;
+  } else {
+    ok(`Node.js ${process.versions.node}`);
+  }
+
+  let hardFail = !nodeOk;
+
+  if (codexPath) {
+    const r = await run("codex", ["--version"]);
+    const version = (r.stdout || r.stderr).trim().split("\n")[0];
+    if (r.code === 0) ok(`Codex CLI: ${codexPath} (${version})`);
+    else warn(`Codex CLI 발견(${codexPath})이지만 --version 호출 실패: ${r.stderr}`);
+  } else {
+    err(`Codex CLI(codex) — PATH에 없음`);
+    info(`설치 안내:`);
+    info(`  npm i -g @openai/codex`);
+    info(`  또는 https://github.com/openai/codex`);
+    hardFail = true;
+  }
+
+  if (claudePath) {
+    const r = await run("claude", ["--version"]);
+    const version = (r.stdout || r.stderr).trim().split("\n")[0];
+    if (r.code === 0) ok(`Claude Code: ${claudePath} (${version})`);
+    else warn(`Claude Code 발견(${claudePath})이지만 --version 호출 실패: ${r.stderr}`);
+  } else {
+    err(`Claude Code(claude) — PATH에 없음`);
+    info(`설치 안내:`);
+    info(`  https://docs.claude.com/en/docs/claude-code/quickstart`);
+    info(`  또는 https://claude.ai/download`);
+    hardFail = true;
+  }
+
+  if (hardFail) {
+    if (autoYes) {
+      err("필수 CLI가 누락된 상태에서 --yes로 진행하지 않습니다. 설치 후 다시 시도하세요.");
+      process.exit(2);
+    }
+    const ans = (await prompt("필수 CLI가 누락되었습니다. 그래도 계속할까요? [y/N] ")).toLowerCase();
+    if (ans !== "y" && ans !== "yes") {
+      info("설치를 중단합니다. 누락된 CLI를 설치한 뒤 다시 실행하세요.");
+      process.exit(2);
+    }
+    warn("누락 상태에서 계속 진행 — 일부 단계는 실패할 수 있습니다.");
+  }
+
+  // Soft health checks (non-blocking)
+  if (codexPath) {
+    const r = await run("codex", ["doctor", "--summary"]);
+    if (r.code === 0 && /\bok\b/i.test(r.stdout)) {
+      ok(`codex doctor: 정상`);
+    } else {
+      warn(`codex doctor: 정상 응답이 아님 — 인증/네트워크 확인 권장`);
+      if (r.stdout) info(`  요약: ${r.stdout.split("\n").slice(0, 2).join(" | ")}`);
+    }
+  }
+
+  if (claudePath) {
+    const r = await run("claude", ["auth", "status", "--text"]);
+    if (r.code === 0 && /Login method/i.test(r.stdout)) {
+      const line = (r.stdout.split("\n").find((l) => /Login method/i.test(l)) || "").trim();
+      ok(`Claude 인증: ${line || "정상"}`);
+    } else {
+      warn(`Claude 인증 상태 불명확 — 필요 시 \`claude auth login --claudeai\` 후 재시도`);
+    }
+  }
+
+  return { codexPath, claudePath };
+}
+
 async function checkMcp(manifest) {
   if (!which("claude")) {
     warn("Claude Code CLI(claude)가 PATH에 없습니다. MCP 자동 등록은 건너뜁니다.");
@@ -452,8 +530,11 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   const flagLoop = args.flags["improvement-loop"];
   const autoYes = args.flags["yes"] === true || args.flags["y"] === true;
 
+  // Preflight: verify Claude Code + Codex CLI presence
+  await preflight({ autoYes });
+
   // MCP check
-  log(`${c.bold}1. MCP 서버 상태 확인${c.reset}`);
+  log(`\n${c.bold}1. MCP 서버 상태 확인${c.reset}`);
   const mcpStatus = await checkMcp(manifest);
   if (mcpStatus.state === "missing") {
     await offerMcpRegister(manifest, autoYes);
@@ -550,6 +631,10 @@ async function main() {
     await cmdStatus();
     return;
   }
+  if (sub === "doctor" || sub === "check") {
+    await preflight({ autoYes: false });
+    return;
+  }
   if (sub === "uninstall" || sub === "remove") {
     await cmdUninstall(manifest);
     return;
@@ -572,8 +657,9 @@ async function main() {
   }
   if (sub === "help" || args.flags.help) {
     log(`Usage:
-  codex-on-claude               설치 (인터랙티브)
+  codex-on-claude               설치 (인터랙티브, 사전 점검 포함)
   codex-on-claude reconfigure   옵션 재선택 (기존 답을 기본값으로)
+  codex-on-claude doctor        사전 점검만 단독 실행 (claude/codex/Node 확인)
   codex-on-claude status        설치 상태 표시
   codex-on-claude uninstall     설치된 컴포넌트 제거
   codex-on-claude analyze       사용 로그 분석 및 개선 후보 표시

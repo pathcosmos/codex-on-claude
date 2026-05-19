@@ -1,0 +1,620 @@
+#!/usr/bin/env node
+// codex-on-claude installer / reconfigurer
+// Usage:
+//   codex-on-claude              # interactive install (uses saved config if present as defaults)
+//   codex-on-claude reconfigure  # interactive re-selection with previous answers as defaults
+//   codex-on-claude status       # show current installation state
+//   codex-on-claude uninstall    # remove all installed components
+//   codex-on-claude --patterns=review,followup --context-policy=mixed --share-scope=local --yes
+//
+// No external dependencies. Pure Node built-ins.
+
+import { promises as fs, existsSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import path from "node:path";
+import os from "node:os";
+import { fileURLToPath } from "node:url";
+import readline from "node:readline";
+import { runAnalyze, recordDecision, appendLog } from "./analyze.mjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const HOME = os.homedir();
+const CLAUDE_DIR = path.join(HOME, ".claude");
+const STATE_DIR = path.join(CLAUDE_DIR, "codex-on-claude");
+const STATE_FILE = path.join(STATE_DIR, "config.json");
+
+const MANIFEST_PATH = path.join(__dirname, "manifest.json");
+
+// ANSI helpers
+const c = {
+  reset: "\x1b[0m",
+  dim: "\x1b[2m",
+  bold: "\x1b[1m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  red: "\x1b[31m",
+  cyan: "\x1b[36m",
+};
+const log = (...a) => console.log(...a);
+const ok = (m) => log(`${c.green}✓${c.reset} ${m}`);
+const warn = (m) => log(`${c.yellow}!${c.reset} ${m}`);
+const err = (m) => log(`${c.red}✗${c.reset} ${m}`);
+const info = (m) => log(`${c.cyan}·${c.reset} ${m}`);
+
+async function readJson(p) {
+  return JSON.parse(await fs.readFile(p, "utf8"));
+}
+async function writeJson(p, obj) {
+  await fs.mkdir(path.dirname(p), { recursive: true });
+  await fs.writeFile(p, JSON.stringify(obj, null, 2) + "\n");
+}
+
+async function pathExists(p) {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function copyTree(src, dst) {
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await fs.cp(src, dst, { recursive: true, force: true });
+}
+
+async function removeIfExists(p) {
+  if (await pathExists(p)) {
+    await fs.rm(p, { recursive: true, force: true });
+    return true;
+  }
+  return false;
+}
+
+function parseArgs(argv) {
+  const args = { _: [], flags: {} };
+  for (const a of argv.slice(2)) {
+    if (a.startsWith("--")) {
+      const [k, v] = a.slice(2).split("=");
+      args.flags[k] = v === undefined ? true : v;
+    } else {
+      args._.push(a);
+    }
+  }
+  return args;
+}
+
+function which(bin) {
+  const r = spawnSync("which", [bin], { encoding: "utf8" });
+  return r.status === 0 ? r.stdout.trim() : null;
+}
+
+function run(cmd, args, opts = {}) {
+  return new Promise((resolve) => {
+    const p = spawn(cmd, args, { stdio: opts.inherit ? "inherit" : ["ignore", "pipe", "pipe"], ...opts });
+    let stdout = "";
+    let stderr = "";
+    if (!opts.inherit) {
+      p.stdout?.on("data", (d) => (stdout += d.toString()));
+      p.stderr?.on("data", (d) => (stderr += d.toString()));
+    }
+    p.on("close", (code) => resolve({ code, stdout, stderr }));
+    p.on("error", (e) => resolve({ code: -1, stdout, stderr: e.message }));
+  });
+}
+
+async function prompt(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => rl.question(question, (a) => { rl.close(); resolve(a.trim()); }));
+}
+
+async function askMulti(label, choices, defaults = []) {
+  log(`\n${c.bold}${label}${c.reset}`);
+  choices.forEach((ch, i) => {
+    const mark = defaults.includes(ch.key) ? `${c.green}[x]${c.reset}` : "[ ]";
+    log(`  ${mark} ${i + 1}. ${ch.label} ${c.dim}(${ch.key})${c.reset}`);
+  });
+  const help = defaults.length
+    ? `숫자를 쉼표로 (예: 1,3) / Enter = 기본값 유지 [${defaults.join(",")}] / "all" / "none"`
+    : `숫자를 쉼표로 (예: 1,3) / "all" / "none"`;
+  log(c.dim + help + c.reset);
+  const ans = await prompt("> ");
+  if (ans === "" && defaults.length) return [...defaults];
+  if (ans === "" || ans.toLowerCase() === "none") return [];
+  if (ans.toLowerCase() === "all") return choices.map((ch) => ch.key);
+  const picks = ans.split(/[,\s]+/).filter(Boolean).map((s) => parseInt(s, 10)).filter((n) => n >= 1 && n <= choices.length);
+  return [...new Set(picks.map((n) => choices[n - 1].key))];
+}
+
+async function askSingle(label, choices, defaultKey) {
+  log(`\n${c.bold}${label}${c.reset}`);
+  choices.forEach((ch, i) => {
+    const mark = ch.key === defaultKey ? `${c.green}(*)${c.reset}` : "( )";
+    log(`  ${mark} ${i + 1}. ${ch.label} ${c.dim}(${ch.key})${c.reset}`);
+  });
+  const help = defaultKey
+    ? `숫자 하나 / Enter = 기본값 [${defaultKey}]`
+    : `숫자 하나`;
+  log(c.dim + help + c.reset);
+  const ans = await prompt("> ");
+  if (ans === "" && defaultKey) return defaultKey;
+  const n = parseInt(ans, 10);
+  if (n >= 1 && n <= choices.length) return choices[n - 1].key;
+  return defaultKey || choices[0].key;
+}
+
+async function loadState() {
+  if (!(await pathExists(STATE_FILE))) return null;
+  try {
+    return await readJson(STATE_FILE);
+  } catch {
+    return null;
+  }
+}
+
+async function saveState(state) {
+  await writeJson(STATE_FILE, { ...state, updatedAt: new Date().toISOString() });
+}
+
+function parseListFlag(v) {
+  if (v === undefined || v === true) return undefined;
+  return String(v).split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+async function checkMcp(manifest) {
+  if (!which("claude")) {
+    warn("Claude Code CLI(claude)가 PATH에 없습니다. MCP 자동 등록은 건너뜁니다.");
+    return { state: "missing-cli" };
+  }
+  const r = await run("claude", ["mcp", "get", manifest.mcp.name]);
+  const combined = (r.stdout + r.stderr).toLowerCase();
+  if (r.code === 0 && combined.includes("connected")) {
+    ok(`MCP server "${manifest.mcp.name}" 이미 등록됨 및 연결 정상`);
+    return { state: "connected" };
+  }
+  if (r.code === 0) {
+    warn(`MCP server "${manifest.mcp.name}" 등록은 되어 있으나 연결 상태가 불명확합니다.`);
+    return { state: "registered-but-unhealthy" };
+  }
+  info(`MCP server "${manifest.mcp.name}" 미등록 — 등록 명령: ${manifest.mcp.registerCommand}`);
+  return { state: "missing" };
+}
+
+async function offerMcpRegister(manifest, autoYes) {
+  if (!which("claude")) return;
+  const answer = autoYes
+    ? "y"
+    : (await prompt(`MCP server "${manifest.mcp.name}"를 지금 등록할까요? [Y/n] `)).toLowerCase();
+  if (answer && answer !== "y" && answer !== "yes" && answer !== "") {
+    info("MCP 등록을 건너뜁니다.");
+    return;
+  }
+  const r = await run("claude", ["mcp", "add", "--scope", "user", manifest.mcp.name, "--", manifest.mcp.command, ...manifest.mcp.args]);
+  if (r.code === 0) {
+    ok(`MCP server 등록 완료`);
+  } else {
+    err(`MCP 등록 실패: ${r.stderr || r.stdout}`);
+  }
+}
+
+function selectedSkills(manifest, patterns, improvementLoop) {
+  const set = new Set();
+  for (const ch of manifest.questions.patterns.choices) {
+    if (patterns.includes(ch.key)) {
+      for (const s of ch.skills) set.add(s);
+    }
+  }
+  const loopChoice = manifest.questions.improvementLoop.choices.find((c) => c.key === improvementLoop);
+  if (loopChoice?.installAnalyzeSkill) {
+    set.add("codex-analyze");
+    set.add("codex-improve");
+    set.add("codex-log");
+  }
+  return [...set];
+}
+
+function shouldInstallAgent(manifest, contextPolicy) {
+  const ch = manifest.questions.contextPolicy.choices.find((c) => c.key === contextPolicy);
+  return ch ? !!ch.installAgent : false;
+}
+
+function shouldInstallPluginBundle(manifest, shareScope) {
+  const ch = manifest.questions.shareScope.choices.find((c) => c.key === shareScope);
+  return ch ? !!ch.installPluginBundle : false;
+}
+
+function loggingEnabled(manifest, improvementLoop) {
+  const ch = manifest.questions.improvementLoop.choices.find((c) => c.key === improvementLoop);
+  return ch ? !!ch.enableLogging : false;
+}
+
+async function applyInstallation(manifest, choices, previousState) {
+  const desiredSkills = new Set(selectedSkills(manifest, choices.patterns, choices.improvementLoop));
+  const desiredAgent = shouldInstallAgent(manifest, choices.contextPolicy);
+  const desiredPlugin = shouldInstallPluginBundle(manifest, choices.shareScope);
+  const desiredLogging = loggingEnabled(manifest, choices.improvementLoop);
+
+  if (desiredLogging) {
+    await fs.mkdir(path.join(STATE_DIR, "logs"), { recursive: true });
+    await fs.mkdir(path.join(STATE_DIR, "reports"), { recursive: true });
+    await fs.mkdir(path.join(STATE_DIR, "improvements"), { recursive: true });
+  }
+
+  const installed = { skills: [], agent: null, pluginBundle: null, removed: [] };
+
+  // Skills install / diff
+  const previousSkills = new Set((previousState?.installed?.skills) || []);
+
+  for (const skillKey of desiredSkills) {
+    const def = manifest.skills[skillKey];
+    if (!def) {
+      warn(`매니페스트에 ${skillKey} 정의가 없습니다.`);
+      continue;
+    }
+    const src = path.join(__dirname, def.source);
+    const dst = path.join(CLAUDE_DIR, def.target);
+    if (!(await pathExists(src))) {
+      err(`소스 누락: ${src}`);
+      continue;
+    }
+    await copyTree(src, dst);
+    installed.skills.push(skillKey);
+    ok(`Skill 설치/갱신: ${skillKey} → ${dst}`);
+  }
+
+  // Remove skills that were previously installed but no longer desired
+  for (const prev of previousSkills) {
+    if (!desiredSkills.has(prev)) {
+      const def = manifest.skills[prev];
+      if (!def) continue;
+      const dst = path.join(CLAUDE_DIR, def.target);
+      if (await removeIfExists(dst)) {
+        installed.removed.push(`skills/${prev}`);
+        info(`이전 Skill 제거: ${prev}`);
+      }
+    }
+  }
+
+  // Agent install / removal
+  const agentDef = manifest.agent;
+  const agentTarget = path.join(CLAUDE_DIR, agentDef.target);
+  if (desiredAgent) {
+    const src = path.join(__dirname, agentDef.source);
+    if (!(await pathExists(src))) {
+      err(`Agent 소스 누락: ${src}`);
+    } else {
+      await fs.mkdir(path.dirname(agentTarget), { recursive: true });
+      await fs.copyFile(src, agentTarget);
+      installed.agent = agentDef.name;
+      ok(`Agent 설치/갱신: ${agentDef.name} → ${agentTarget}`);
+    }
+  } else {
+    if (previousState?.installed?.agent) {
+      if (await removeIfExists(agentTarget)) {
+        installed.removed.push(`agents/${agentDef.name}`);
+        info(`이전 Agent 제거: ${agentDef.name}`);
+      }
+    }
+  }
+
+  // Plugin bundle (only if share-scope=team)
+  const bundleDef = manifest.pluginBundle;
+  const bundleTarget = path.join(CLAUDE_DIR, bundleDef.target);
+  if (desiredPlugin) {
+    const src = path.join(__dirname, bundleDef.source);
+    if (await pathExists(src)) {
+      await copyTree(src, bundleTarget);
+      installed.pluginBundle = bundleDef.target;
+      ok(`Plugin 번들 설치: ${bundleTarget}`);
+    } else {
+      warn(`Plugin 번들 소스가 아직 준비되지 않았습니다 (${src}). 건너뜁니다.`);
+    }
+  } else {
+    if (previousState?.installed?.pluginBundle) {
+      if (await removeIfExists(bundleTarget)) {
+        installed.removed.push(`plugins/${bundleDef.target}`);
+        info(`이전 Plugin 번들 제거`);
+      }
+    }
+  }
+
+  return installed;
+}
+
+async function cmdStatus() {
+  const state = await loadState();
+  if (!state) {
+    info("아직 설치되지 않았습니다. `codex-on-claude` 또는 `codex-on-claude reconfigure`를 실행하세요.");
+    return;
+  }
+  log(`${c.bold}codex-on-claude 설치 상태${c.reset}`);
+  log(`  업데이트: ${state.updatedAt || "-"}`);
+  log(`  patterns: ${(state.choices.patterns || []).join(", ") || "(none)"}`);
+  log(`  contextPolicy: ${state.choices.contextPolicy}`);
+  log(`  shareScope: ${state.choices.shareScope}`);
+  log(`  improvementLoop: ${state.choices.improvementLoop || "(unset)"}`);
+  log(`  설치된 Skills: ${(state.installed?.skills || []).join(", ") || "(none)"}`);
+  log(`  설치된 Agent: ${state.installed?.agent || "(none)"}`);
+  log(`  설치된 Plugin 번들: ${state.installed?.pluginBundle || "(none)"}`);
+}
+
+async function cmdAnalyze(args) {
+  const days = parseInt(args.flags["days"], 10) || 14;
+  const format = typeof args.flags["format"] === "string" ? args.flags["format"] : "text";
+  const save = args.flags["save"] === true;
+  const output = await runAnalyze({ days, format, save });
+  process.stdout.write(output + "\n");
+}
+
+async function cmdSuggest(args) {
+  const applyIdx = args.flags["apply"];
+  const rejectIdx = args.flags["reject"];
+  const reason = typeof args.flags["reason"] === "string" ? args.flags["reason"] : null;
+
+  // Re-run analyze to get the same candidate list
+  const reportJson = await runAnalyze({ days: parseInt(args.flags["days"], 10) || 14, format: "json" });
+  const report = JSON.parse(reportJson);
+
+  if (applyIdx === undefined && rejectIdx === undefined) {
+    process.stdout.write("--apply N 또는 --reject N 을 지정하세요. 후보 목록은 `codex-on-claude analyze`로 확인.\n");
+    return;
+  }
+  const idx = parseInt(applyIdx ?? rejectIdx, 10) - 1;
+  if (Number.isNaN(idx) || idx < 0 || idx >= report.candidates.length) {
+    err("유효하지 않은 후보 번호입니다.");
+    return;
+  }
+  const cand = report.candidates[idx];
+  const decision = applyIdx !== undefined ? "applied" : "rejected";
+  const file = await recordDecision({
+    candidateId: cand.id,
+    category: cand.category,
+    decision,
+    appliedChanges: decision === "applied" ? cand.applyHint || null : null,
+    reason,
+  });
+  ok(`결정 기록: ${decision} [${cand.id}] → ${file}`);
+  if (decision === "applied" && cand.applyHint) {
+    info(`적용 명령: ${cand.applyHint}`);
+    info("위 명령을 직접 실행하거나, /codex-improve Skill을 호출해 안내를 받으세요.");
+  }
+}
+
+async function cmdLog(args) {
+  const entry = {
+    skill: args.flags["skill"] || null,
+    tool: args.flags["tool"] || "mcp__codex__codex",
+    sandbox: args.flags["sandbox"] || null,
+    approvalPolicy: args.flags["approval-policy"] || null,
+    threadId: args.flags["thread-id"] || null,
+    promptChars: parseInt(args.flags["prompt-chars"], 10) || 0,
+    responseChars: parseInt(args.flags["response-chars"], 10) || 0,
+    elapsedMs: parseInt(args.flags["elapsed-ms"], 10) || 0,
+    viaAgent: args.flags["via-agent"] === true || args.flags["via-agent"] === "true",
+    outcome: args.flags["outcome"] || "ok",
+    errorKind: args.flags["error-kind"] || null,
+    notes: args.flags["notes"] || null,
+  };
+  const file = await appendLog(entry);
+  ok(`로그 기록: ${file}`);
+}
+
+async function cmdUninstall(manifest) {
+  const state = await loadState();
+  if (!state) {
+    info("설치 상태 파일이 없습니다. 수동으로 ~/.claude/skills/codex-* 및 ~/.claude/agents/codex-reviewer.md 를 확인하세요.");
+    return;
+  }
+  const removed = [];
+  for (const skillKey of state.installed?.skills || []) {
+    const def = manifest.skills[skillKey];
+    if (!def) continue;
+    const dst = path.join(CLAUDE_DIR, def.target);
+    if (await removeIfExists(dst)) removed.push(`skills/${skillKey}`);
+  }
+  if (state.installed?.agent) {
+    const dst = path.join(CLAUDE_DIR, manifest.agent.target);
+    if (await removeIfExists(dst)) removed.push(`agents/${manifest.agent.name}`);
+  }
+  if (state.installed?.pluginBundle) {
+    const dst = path.join(CLAUDE_DIR, manifest.pluginBundle.target);
+    if (await removeIfExists(dst)) removed.push(`plugins/${manifest.pluginBundle.target}`);
+  }
+  await removeIfExists(STATE_FILE);
+  await removeIfExists(STATE_DIR);
+  ok(`제거 완료: ${removed.length}개 항목`);
+  removed.forEach((r) => info(`  - ${r}`));
+  warn("MCP server 등록(codex)은 수동으로 제거해야 합니다: `claude mcp remove codex -s user`");
+}
+
+async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
+  const isReconfigure = opts.reconfigure === true;
+  const previousState = await loadState();
+
+  if (isReconfigure && !previousState) {
+    info("이전 설치 기록이 없습니다. 처음 설치 흐름으로 진행합니다.");
+  }
+
+  // Defaults
+  const defaults = {
+    patterns: previousState?.choices?.patterns || [],
+    contextPolicy: previousState?.choices?.contextPolicy,
+    shareScope: previousState?.choices?.shareScope,
+    improvementLoop: previousState?.choices?.improvementLoop,
+  };
+
+  // Flag overrides
+  const flagPatterns = parseListFlag(args.flags["patterns"]);
+  const flagCtx = args.flags["context-policy"];
+  const flagShare = args.flags["share-scope"];
+  const flagLoop = args.flags["improvement-loop"];
+  const autoYes = args.flags["yes"] === true || args.flags["y"] === true;
+
+  // MCP check
+  log(`${c.bold}1. MCP 서버 상태 확인${c.reset}`);
+  const mcpStatus = await checkMcp(manifest);
+  if (mcpStatus.state === "missing") {
+    await offerMcpRegister(manifest, autoYes);
+  }
+
+  // Questions
+  log(`\n${c.bold}2. 설치 옵션 선택${c.reset}`);
+  if (previousState) {
+    info(`기존 설정을 기본값으로 사용합니다. ${isReconfigure ? "변경할 항목만 입력하세요." : ""}`);
+  }
+
+  const patternsAns = flagPatterns
+    ?? (autoYes ? defaults.patterns : await askMulti(
+      manifest.questions.patterns.label,
+      manifest.questions.patterns.choices,
+      defaults.patterns
+    ));
+
+  const ctxAns = typeof flagCtx === "string" ? flagCtx
+    : (autoYes ? (defaults.contextPolicy || "mixed") : await askSingle(
+      manifest.questions.contextPolicy.label,
+      manifest.questions.contextPolicy.choices,
+      defaults.contextPolicy
+    ));
+
+  const shareAns = typeof flagShare === "string" ? flagShare
+    : (autoYes ? (defaults.shareScope || "local") : await askSingle(
+      manifest.questions.shareScope.label,
+      manifest.questions.shareScope.choices,
+      defaults.shareScope
+    ));
+
+  const loopAns = typeof flagLoop === "string" ? flagLoop
+    : (autoYes ? (defaults.improvementLoop || "on-demand") : await askSingle(
+      manifest.questions.improvementLoop.label,
+      manifest.questions.improvementLoop.choices,
+      defaults.improvementLoop || "on-demand"
+    ));
+
+  const choices = {
+    patterns: patternsAns,
+    contextPolicy: ctxAns,
+    shareScope: shareAns,
+    improvementLoop: loopAns,
+  };
+
+  log(`\n${c.bold}3. 적용${c.reset}`);
+  log(`  patterns: ${choices.patterns.join(", ") || "(none)"}`);
+  log(`  contextPolicy: ${choices.contextPolicy}`);
+  log(`  shareScope: ${choices.shareScope}`);
+  log(`  improvementLoop: ${choices.improvementLoop}`);
+
+  if (!autoYes) {
+    const confirm = (await prompt("\n이 설정으로 적용할까요? [Y/n] ")).toLowerCase();
+    if (confirm && confirm !== "y" && confirm !== "yes" && confirm !== "") {
+      warn("취소되었습니다. 변경사항 없음.");
+      return;
+    }
+  }
+
+  const installed = await applyInstallation(manifest, choices, previousState);
+
+  const newState = {
+    version: manifest.version,
+    choices,
+    installed,
+    mcp: { name: manifest.mcp.name, status: mcpStatus.state },
+  };
+  await saveState(newState);
+  ok(`상태 저장: ${STATE_FILE}`);
+
+  log(`\n${c.bold}4. 다음 단계${c.reset}`);
+  log(`  - Claude Code를 다시 시작하면 새 Skill/Agent가 인식됩니다.`);
+  log(`  - 상태 확인: ${c.cyan}codex-on-claude status${c.reset}`);
+  log(`  - 옵션 재구성: ${c.cyan}codex-on-claude reconfigure${c.reset}`);
+  log(`  - 제거: ${c.cyan}codex-on-claude uninstall${c.reset}`);
+}
+
+async function main() {
+  const args = parseArgs(process.argv);
+  const sub = args._[0];
+
+  let manifest;
+  try {
+    manifest = await readJson(MANIFEST_PATH);
+  } catch (e) {
+    err(`매니페스트 로드 실패: ${MANIFEST_PATH}`);
+    process.exit(1);
+  }
+
+  log(`${c.bold}codex-on-claude${c.reset} v${manifest.version}`);
+
+  if (sub === "status") {
+    await cmdStatus();
+    return;
+  }
+  if (sub === "uninstall" || sub === "remove") {
+    await cmdUninstall(manifest);
+    return;
+  }
+  if (sub === "reconfigure" || sub === "config") {
+    await cmdInstallOrReconfigure(manifest, args, { reconfigure: true });
+    return;
+  }
+  if (sub === "analyze") {
+    await cmdAnalyze(args);
+    return;
+  }
+  if (sub === "suggest") {
+    await cmdSuggest(args);
+    return;
+  }
+  if (sub === "log") {
+    await cmdLog(args);
+    return;
+  }
+  if (sub === "help" || args.flags.help) {
+    log(`Usage:
+  codex-on-claude               설치 (인터랙티브)
+  codex-on-claude reconfigure   옵션 재선택 (기존 답을 기본값으로)
+  codex-on-claude status        설치 상태 표시
+  codex-on-claude uninstall     설치된 컴포넌트 제거
+  codex-on-claude analyze       사용 로그 분석 및 개선 후보 표시
+  codex-on-claude suggest       특정 후보 채택/거부 기록
+  codex-on-claude log           수동으로 사용 기록 추가
+
+Install flags:
+  --patterns=review,followup,fix,routine
+  --context-policy=direct|summarize|mixed
+  --share-scope=local|projects|team
+  --improvement-loop=off|on-demand|periodic
+  --yes, -y                     모든 확인 자동 수락
+
+Analyze flags:
+  --days=14                     최근 N일 (기본 14)
+  --format=text|json|markdown
+  --save                        보고서를 ~/.claude/codex-on-claude/reports/에 저장
+
+Suggest flags:
+  --apply=N                     후보 N 채택 기록
+  --reject=N --reason="..."     후보 N 거부 기록
+
+Log flags (모두 옵션):
+  --skill=codex-review --tool=mcp__codex__codex --sandbox=read-only
+  --thread-id=... --prompt-chars=N --response-chars=N --elapsed-ms=N
+  --via-agent=true --outcome=ok|session-not-found|tool-error|timeout
+  --error-kind=... --notes="..."
+
+Examples:
+  codex-on-claude --patterns=review,followup --context-policy=mixed --share-scope=local --improvement-loop=on-demand --yes
+  npx codex-on-claude reconfigure
+  codex-on-claude analyze --days=7 --format=markdown --save
+  codex-on-claude suggest --apply=2
+`);
+    return;
+  }
+
+  await cmdInstallOrReconfigure(manifest, args, { reconfigure: false });
+}
+
+main().catch((e) => {
+  err(e?.stack || String(e));
+  process.exit(1);
+});

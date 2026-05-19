@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+*.log
+npm-debug.log*
+.env
+.env.local
+.vscode/
+.idea/
+dist/
+build/
+*.tgz
+.nyc_output/
+coverage/
+
+# Per-machine Claude Code permissions (not shareable)
+.claude/settings.local.json

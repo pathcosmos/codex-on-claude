@@ -1,0 +1,151 @@
+{
+  "$schema": "./manifest.schema.json",
+  "version": "0.1.0",
+  "name": "codex-on-claude",
+  "description": "Install bridge components that let Claude Code call OpenAI Codex CLI via MCP.",
+  "questions": {
+    "patterns": {
+      "type": "multi",
+      "label": "Codex 호출 패턴 / Codex invocation patterns",
+      "choices": [
+        {
+          "key": "review",
+          "label": "단발 read-only 검토 / one-shot read-only review",
+          "skills": ["codex-review"]
+        },
+        {
+          "key": "followup",
+          "label": "긴 멀티턴 세션 / long multi-turn session",
+          "skills": ["codex-followup", "codex-resume"]
+        },
+        {
+          "key": "fix",
+          "label": "워크스페이스 수정 위임 / workspace-write delegation",
+          "skills": ["codex-fix"]
+        },
+        {
+          "key": "routine",
+          "label": "정형화된 반복 작업 / templated repeating job",
+          "skills": ["codex-routine"]
+        }
+      ]
+    },
+    "contextPolicy": {
+      "type": "single",
+      "label": "Codex 응답 컨텍스트 정책 / Codex response context policy",
+      "choices": [
+        {
+          "key": "direct",
+          "label": "메인에 직접 표시 / show directly in main context",
+          "installAgent": false
+        },
+        {
+          "key": "summarize",
+          "label": "요약만 메인으로 (격리) / summary only via subagent",
+          "installAgent": true
+        },
+        {
+          "key": "mixed",
+          "label": "상황별 혼용 (권장) / mixed per call (recommended)",
+          "installAgent": true
+        }
+      ]
+    },
+    "shareScope": {
+      "type": "single",
+      "label": "공유 범위 / share scope",
+      "choices": [
+        {
+          "key": "local",
+          "label": "본인 로컬만 / local user only",
+          "installPluginBundle": false
+        },
+        {
+          "key": "projects",
+          "label": "다른 프로젝트도 이식 / portable across projects",
+          "installPluginBundle": false
+        },
+        {
+          "key": "team",
+          "label": "팀/외부 배포 (Plugin 번들) / team or external (Plugin bundle)",
+          "installPluginBundle": true
+        }
+      ]
+    },
+    "improvementLoop": {
+      "type": "single",
+      "label": "지능적 지속 개선 루프 / continuous improvement loop",
+      "choices": [
+        {
+          "key": "off",
+          "label": "끔 / disabled (no logging, no suggestions)",
+          "enableLogging": false,
+          "installAnalyzeSkill": false
+        },
+        {
+          "key": "on-demand",
+          "label": "수동 (사용자 트리거 시에만 분석) / on-demand only (recommended)",
+          "enableLogging": true,
+          "installAnalyzeSkill": true
+        },
+        {
+          "key": "periodic",
+          "label": "주기적 (정기 분석 + 제안) / periodic (auto-analyze + suggest)",
+          "enableLogging": true,
+          "installAnalyzeSkill": true,
+          "schedule": "weekly"
+        }
+      ]
+    }
+  },
+  "agent": {
+    "name": "codex-reviewer",
+    "source": "components/agents/codex-reviewer.md",
+    "target": "agents/codex-reviewer.md"
+  },
+  "skills": {
+    "codex-review": {
+      "source": "components/skills/codex-review",
+      "target": "skills/codex-review"
+    },
+    "codex-followup": {
+      "source": "components/skills/codex-followup",
+      "target": "skills/codex-followup"
+    },
+    "codex-resume": {
+      "source": "components/skills/codex-resume",
+      "target": "skills/codex-resume"
+    },
+    "codex-fix": {
+      "source": "components/skills/codex-fix",
+      "target": "skills/codex-fix"
+    },
+    "codex-routine": {
+      "source": "components/skills/codex-routine",
+      "target": "skills/codex-routine"
+    },
+    "codex-analyze": {
+      "source": "components/skills/codex-analyze",
+      "target": "skills/codex-analyze"
+    },
+    "codex-improve": {
+      "source": "components/skills/codex-improve",
+      "target": "skills/codex-improve"
+    },
+    "codex-log": {
+      "source": "components/skills/codex-log",
+      "target": "skills/codex-log"
+    }
+  },
+  "pluginBundle": {
+    "source": "components/plugin",
+    "target": "plugins/marketplaces/codex-bridge"
+  },
+  "mcp": {
+    "name": "codex",
+    "command": "codex",
+    "args": ["mcp-server"],
+    "registerCommand": "claude mcp add --scope user codex -- codex mcp-server",
+    "checkCommand": "claude mcp get codex"
+  }
+}

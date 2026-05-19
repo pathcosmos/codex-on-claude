@@ -1,0 +1,45 @@
+{
+  "name": "codex-on-claude",
+  "version": "0.1.0",
+  "description": "Bridge that lets Claude Code call OpenAI Codex CLI as an MCP sub-agent, with installable Skills/Agents/Plugin, a continuous improvement loop, and a local-only usage analyzer.",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "codex-cli",
+    "mcp",
+    "anthropic",
+    "openai",
+    "agent",
+    "skill",
+    "plugin",
+    "ai"
+  ],
+  "license": "MIT",
+  "author": "pathcosmos <lanco.gh@gmail.com>",
+  "homepage": "https://github.com/pathcosmos/codex-on-claude#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pathcosmos/codex-on-claude.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pathcosmos/codex-on-claude/issues"
+  },
+  "type": "module",
+  "main": "install/install.mjs",
+  "bin": {
+    "codex-on-claude": "install/install.mjs"
+  },
+  "files": [
+    "install/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node install/install.mjs",
+    "postinstall": "node -e \"console.log('codex-on-claude: run `npx codex-on-claude` or `codex-on-claude` to install Skills/Agents.')\""
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}

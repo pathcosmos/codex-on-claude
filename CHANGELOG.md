@@ -2,6 +2,14 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.1] — 2026-05-20
+
+### Fixed
+- **Critical**: removed `postinstall` script from `package.json`. The previous version embedded a `console.log` containing literal backticks around `` `npx codex-on-claude` ``, which `sh -c` interpreted as command substitution. That caused npm to re-invoke `npx codex-on-claude` during install — an infinite-recursion install loop that only terminated on `SIGINT`. Affects 0.2.0 (0.1.0 had the same script but the issue went unnoticed because of caching during initial publish).
+
+### Removed
+- `package.json` `scripts.postinstall` (the help line wasn't worth the risk; the installer prints next steps itself when run).
+
 ## [0.2.0] — 2026-05-20
 
 ### Added — Persistent thread catalog

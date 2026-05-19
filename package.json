@@ -1,6 +1,6 @@
 {
   "name": "codex-on-claude",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Bridge that lets Claude Code call OpenAI Codex CLI as an MCP sub-agent, with installable Skills/Agents/Plugin, a continuous improvement loop, and a local-only usage analyzer.",
   "keywords": [
     "claude-code",
@@ -36,8 +36,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "start": "node install/install.mjs",
-    "postinstall": "node -e \"console.log('codex-on-claude: run `npx codex-on-claude` or `codex-on-claude` to install Skills/Agents.')\""
+    "start": "node install/install.mjs"
   },
   "engines": {
     "node": ">=18.17"

@@ -5,7 +5,7 @@
 //   codex-on-claude reconfigure  # interactive re-selection with previous answers as defaults
 //   codex-on-claude status       # show current installation state
 //   codex-on-claude uninstall    # remove all installed components
-//   codex-on-claude --patterns=review,followup --context-policy=mixed --share-scope=local --yes
+//   codex-on-claude --patterns=review,followup --context-policy=mixed --improvement-loop=on-demand --threads=basic --yes
 //
 // No external dependencies. Pure Node built-ins.
 
@@ -15,6 +15,7 @@ import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import readline from "node:readline";
+import { checkbox, select, confirm } from "@inquirer/prompts";
 import { runAnalyze, recordDecision, appendLog } from "./analyze.mjs";
 import * as threads from "./threads.mjs";
 
@@ -111,39 +112,67 @@ async function prompt(question) {
   return new Promise((resolve) => rl.question(question, (a) => { rl.close(); resolve(a.trim()); }));
 }
 
+function isInteractive() {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+function handleInquirerError(e) {
+  if (e?.name === "ExitPromptError" || (e?.message || "").includes("force closed")) {
+    log("\n취소되었습니다 / cancelled.");
+    process.exit(130);
+  }
+  throw e;
+}
+
 async function askMulti(label, choices, defaults = []) {
-  log(`\n${c.bold}${label}${c.reset}`);
-  choices.forEach((ch, i) => {
-    const mark = defaults.includes(ch.key) ? `${c.green}[x]${c.reset}` : "[ ]";
-    log(`  ${mark} ${i + 1}. ${ch.label} ${c.dim}(${ch.key})${c.reset}`);
-  });
-  const help = defaults.length
-    ? `숫자를 쉼표로 (예: 1,3) / Enter = 기본값 유지 [${defaults.join(",")}] / "all" / "none"`
-    : `숫자를 쉼표로 (예: 1,3) / "all" / "none"`;
-  log(c.dim + help + c.reset);
-  const ans = await prompt("> ");
-  if (ans === "" && defaults.length) return [...defaults];
-  if (ans === "" || ans.toLowerCase() === "none") return [];
-  if (ans.toLowerCase() === "all") return choices.map((ch) => ch.key);
-  const picks = ans.split(/[,\s]+/).filter(Boolean).map((s) => parseInt(s, 10)).filter((n) => n >= 1 && n <= choices.length);
-  return [...new Set(picks.map((n) => choices[n - 1].key))];
+  if (!isInteractive()) {
+    log(`\n${c.bold}${label}${c.reset}`);
+    log(`${c.dim}(non-TTY) defaults: ${defaults.join(", ") || "(none)"}${c.reset}`);
+    return [...defaults];
+  }
+  try {
+    const picked = await checkbox({
+      message: label,
+      pageSize: 10,
+      choices: choices.map((ch) => ({
+        name: ch.label,
+        value: ch.key,
+        checked: defaults.includes(ch.key),
+      })),
+      instructions: " (↑/↓ 이동, 스페이스 토글, Enter 확정)",
+    });
+    return picked;
+  } catch (e) {
+    handleInquirerError(e);
+  }
 }
 
 async function askSingle(label, choices, defaultKey) {
-  log(`\n${c.bold}${label}${c.reset}`);
-  choices.forEach((ch, i) => {
-    const mark = ch.key === defaultKey ? `${c.green}(*)${c.reset}` : "( )";
-    log(`  ${mark} ${i + 1}. ${ch.label} ${c.dim}(${ch.key})${c.reset}`);
-  });
-  const help = defaultKey
-    ? `숫자 하나 / Enter = 기본값 [${defaultKey}]`
-    : `숫자 하나`;
-  log(c.dim + help + c.reset);
-  const ans = await prompt("> ");
-  if (ans === "" && defaultKey) return defaultKey;
-  const n = parseInt(ans, 10);
-  if (n >= 1 && n <= choices.length) return choices[n - 1].key;
-  return defaultKey || choices[0].key;
+  if (!isInteractive()) {
+    log(`\n${c.bold}${label}${c.reset}`);
+    log(`${c.dim}(non-TTY) default: ${defaultKey || choices[0].key}${c.reset}`);
+    return defaultKey || choices[0].key;
+  }
+  try {
+    const picked = await select({
+      message: label,
+      pageSize: 10,
+      choices: choices.map((ch) => ({ name: ch.label, value: ch.key })),
+      default: defaultKey || choices[0].key,
+    });
+    return picked;
+  } catch (e) {
+    handleInquirerError(e);
+  }
+}
+
+async function askConfirm(message, defaultValue = true) {
+  if (!isInteractive()) return defaultValue;
+  try {
+    return await confirm({ message, default: defaultValue });
+  } catch (e) {
+    handleInquirerError(e);
+  }
 }
 
 async function loadState() {
@@ -210,8 +239,8 @@ async function preflight({ autoYes }) {
       err("필수 CLI가 누락된 상태에서 --yes로 진행하지 않습니다. 설치 후 다시 시도하세요.");
       process.exit(2);
     }
-    const ans = (await prompt("필수 CLI가 누락되었습니다. 그래도 계속할까요? [y/N] ")).toLowerCase();
-    if (ans !== "y" && ans !== "yes") {
+    const proceed = await askConfirm("필수 CLI가 누락되었습니다. 그래도 계속할까요?", false);
+    if (!proceed) {
       info("설치를 중단합니다. 누락된 CLI를 설치한 뒤 다시 실행하세요.");
       process.exit(2);
     }
@@ -276,10 +305,8 @@ async function checkMcp(manifest) {
 
 async function offerMcpRegister(manifest, autoYes) {
   if (!which("claude")) return;
-  const answer = autoYes
-    ? "y"
-    : (await prompt(`MCP server "${manifest.mcp.name}"를 지금 등록할까요? [Y/n] `)).toLowerCase();
-  if (answer && answer !== "y" && answer !== "yes" && answer !== "") {
+  const register = autoYes ? true : await askConfirm(`MCP server "${manifest.mcp.name}"를 지금 등록할까요?`, true);
+  if (!register) {
     info("MCP 등록을 건너뜁니다.");
     return;
   }
@@ -321,11 +348,6 @@ function shouldInstallAgent(manifest, contextPolicy) {
   return ch ? !!ch.installAgent : false;
 }
 
-function shouldInstallPluginBundle(manifest, shareScope) {
-  const ch = manifest.questions.shareScope.choices.find((c) => c.key === shareScope);
-  return ch ? !!ch.installPluginBundle : false;
-}
-
 function loggingEnabled(manifest, improvementLoop) {
   const ch = manifest.questions.improvementLoop.choices.find((c) => c.key === improvementLoop);
   return ch ? !!ch.enableLogging : false;
@@ -334,7 +356,6 @@ function loggingEnabled(manifest, improvementLoop) {
 async function applyInstallation(manifest, choices, previousState) {
   const desiredSkills = new Set(selectedSkills(manifest, choices.patterns, choices.improvementLoop, choices.threads));
   const desiredAgent = shouldInstallAgent(manifest, choices.contextPolicy);
-  const desiredPlugin = shouldInstallPluginBundle(manifest, choices.shareScope);
   const desiredLogging = loggingEnabled(manifest, choices.improvementLoop);
   const desiredThreads = threadsEnabled(manifest, choices.threads);
 
@@ -347,7 +368,7 @@ async function applyInstallation(manifest, choices, previousState) {
     await fs.mkdir(path.join(STATE_DIR, "threads"), { recursive: true });
   }
 
-  const installed = { skills: [], agent: null, pluginBundle: null, removed: [] };
+  const installed = { skills: [], agent: null, removed: [] };
 
   // Skills install / diff
   const previousSkills = new Set((previousState?.installed?.skills) || []);
@@ -404,25 +425,10 @@ async function applyInstallation(manifest, choices, previousState) {
     }
   }
 
-  // Plugin bundle (only if share-scope=team)
-  const bundleDef = manifest.pluginBundle;
-  const bundleTarget = path.join(CLAUDE_DIR, bundleDef.target);
-  if (desiredPlugin) {
-    const src = path.join(__dirname, bundleDef.source);
-    if (await pathExists(src)) {
-      await copyTree(src, bundleTarget);
-      installed.pluginBundle = bundleDef.target;
-      ok(`Plugin 번들 설치: ${bundleTarget}`);
-    } else {
-      warn(`Plugin 번들 소스가 아직 준비되지 않았습니다 (${src}). 건너뜁니다.`);
-    }
-  } else {
-    if (previousState?.installed?.pluginBundle) {
-      if (await removeIfExists(bundleTarget)) {
-        installed.removed.push(`plugins/${bundleDef.target}`);
-        info(`이전 Plugin 번들 제거`);
-      }
-    }
+  // Plugin bundle: deprecated in 0.3.0. Existing 0.2.x bundles are left in place — emit one-time hint.
+  if (previousState?.installed?.pluginBundle || previousState?.choices?.shareScope === "team") {
+    warn(`plugin bundle 자동 관리는 v0.3에서 deprecated 되었습니다. 기존 디렉토리는 그대로 둡니다.`);
+    info(`  수동 제거하려면: rm -rf "$HOME/.claude/plugins/marketplaces/codex-bridge"`);
   }
 
   return installed;
@@ -438,12 +444,13 @@ async function cmdStatus() {
   log(`  업데이트: ${state.updatedAt || "-"}`);
   log(`  patterns: ${(state.choices.patterns || []).join(", ") || "(none)"}`);
   log(`  contextPolicy: ${state.choices.contextPolicy}`);
-  log(`  shareScope: ${state.choices.shareScope}`);
   log(`  improvementLoop: ${state.choices.improvementLoop || "(unset)"}`);
   log(`  threads: ${state.choices.threads || "(unset)"}`);
   log(`  설치된 Skills: ${(state.installed?.skills || []).join(", ") || "(none)"}`);
   log(`  설치된 Agent: ${state.installed?.agent || "(none)"}`);
-  log(`  설치된 Plugin 번들: ${state.installed?.pluginBundle || "(none)"}`);
+  if (state.choices.shareScope || state.installed?.pluginBundle) {
+    log(`  ${c.dim}(legacy) shareScope: ${state.choices.shareScope || "-"}, pluginBundle: ${state.installed?.pluginBundle || "-"}  — v0.3에서 관리 종료${c.reset}`);
+  }
 }
 
 async function cmdAnalyze(args) {
@@ -696,8 +703,8 @@ async function cmdUninstall(manifest) {
     if (await removeIfExists(dst)) removed.push(`agents/${manifest.agent.name}`);
   }
   if (state.installed?.pluginBundle) {
-    const dst = path.join(CLAUDE_DIR, manifest.pluginBundle.target);
-    if (await removeIfExists(dst)) removed.push(`plugins/${manifest.pluginBundle.target}`);
+    // v0.3+: do not auto-delete the legacy plugin bundle. Notify instead.
+    warn(`legacy plugin bundle 발견 (${state.installed.pluginBundle}) — 자동 제거되지 않습니다. 수동: rm -rf "$HOME/.claude/${state.installed.pluginBundle}"`);
   }
   await removeIfExists(STATE_FILE);
   await removeIfExists(STATE_DIR);
@@ -718,7 +725,6 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   const defaults = {
     patterns: previousState?.choices?.patterns || [],
     contextPolicy: previousState?.choices?.contextPolicy,
-    shareScope: previousState?.choices?.shareScope,
     improvementLoop: previousState?.choices?.improvementLoop,
     threads: previousState?.choices?.threads,
   };
@@ -726,10 +732,12 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   // Flag overrides
   const flagPatterns = parseListFlag(args.flags["patterns"]);
   const flagCtx = args.flags["context-policy"];
-  const flagShare = args.flags["share-scope"];
   const flagLoop = args.flags["improvement-loop"];
   const flagThreads = args.flags["threads"];
   const autoYes = args.flags["yes"] === true || args.flags["y"] === true;
+  if (args.flags["share-scope"] !== undefined) {
+    warn(`--share-scope=${args.flags["share-scope"]} 는 v0.3에서 deprecated 되어 무시됩니다.`);
+  }
 
   // Preflight: verify Claude Code + Codex CLI presence
   await preflight({ autoYes });
@@ -761,13 +769,6 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
       defaults.contextPolicy
     ));
 
-  const shareAns = typeof flagShare === "string" ? flagShare
-    : (autoYes ? (defaults.shareScope || "local") : await askSingle(
-      manifest.questions.shareScope.label,
-      manifest.questions.shareScope.choices,
-      defaults.shareScope
-    ));
-
   const loopAns = typeof flagLoop === "string" ? flagLoop
     : (autoYes ? (defaults.improvementLoop || "on-demand") : await askSingle(
       manifest.questions.improvementLoop.label,
@@ -785,7 +786,6 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   const choices = {
     patterns: patternsAns,
     contextPolicy: ctxAns,
-    shareScope: shareAns,
     improvementLoop: loopAns,
     threads: threadsAns,
   };
@@ -793,13 +793,12 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   log(`\n${c.bold}3. 적용${c.reset}`);
   log(`  patterns: ${choices.patterns.join(", ") || "(none)"}`);
   log(`  contextPolicy: ${choices.contextPolicy}`);
-  log(`  shareScope: ${choices.shareScope}`);
   log(`  improvementLoop: ${choices.improvementLoop}`);
   log(`  threads: ${choices.threads}`);
 
   if (!autoYes) {
-    const confirm = (await prompt("\n이 설정으로 적용할까요? [Y/n] ")).toLowerCase();
-    if (confirm && confirm !== "y" && confirm !== "yes" && confirm !== "") {
+    const ok2 = await askConfirm("이 설정으로 적용할까요?", true);
+    if (!ok2) {
       warn("취소되었습니다. 변경사항 없음.");
       return;
     }
@@ -884,10 +883,10 @@ async function main() {
 Install flags:
   --patterns=review,followup,fix,routine
   --context-policy=direct|summarize|mixed
-  --share-scope=local|projects|team
   --improvement-loop=off|on-demand|periodic
   --threads=off|basic|full
   --yes, -y                     모든 확인 자동 수락
+  --share-scope=...             (deprecated, ignored — v0.3에서 제거)
 
 Analyze flags:
   --days=14                     최근 N일 (기본 14)
@@ -918,7 +917,7 @@ Threads subcommand:
   threads remove <id>
 
 Examples:
-  codex-on-claude --patterns=review,followup --context-policy=mixed --share-scope=local --improvement-loop=on-demand --threads=basic --yes
+  codex-on-claude --patterns=review,followup --context-policy=mixed --improvement-loop=on-demand --threads=basic --yes
   npx codex-on-claude reconfigure
   codex-on-claude analyze --days=7 --format=markdown --save
   codex-on-claude suggest --apply=2

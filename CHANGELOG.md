@@ -2,6 +2,25 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] — 2026-05-20
+
+### Changed (BREAKING)
+- **Removed `shareScope` install question and `--share-scope` flag.** The interactive flow is now **four** questions (patterns / contextPolicy / improvementLoop / threads). Passing `--share-scope=...` still parses but emits a deprecation warning and is ignored.
+- **Plugin bundle auto-generation removed.** `~/.claude/plugins/marketplaces/codex-bridge/` is no longer created. Team distribution should clone the GitHub repo directly. Existing bundles from 0.2.x are **left in place** — `uninstall` no longer touches them; a manual `rm -rf` is required.
+
+### Added
+- Interactive install prompts now use arrow-key navigation (↑/↓) and space-to-toggle via `@inquirer/prompts`. Multi-select shows current checked state inline; single-select highlights the default.
+- Non-TTY environments (pipes / CI) automatically fall back to defaults without hanging or raising.
+
+### Dependencies
+- Added `@inquirer/prompts@^8.x` as a runtime dependency. First-time install costs ~25 transitive packages but they are tiny and stay in npm cache afterwards.
+
+### Migration (0.2.x → 0.3.0)
+- No action required. The `shareScope` key in `~/.claude/codex-on-claude/config.json` is silently ignored on next `reconfigure`. If a plugin bundle directory exists from a previous install with `--share-scope=team`, `status` shows a one-line legacy hint and `reconfigure` emits a warning with the manual cleanup command.
+
+### Versioning note
+- This is a `minor` bump (rather than the project's default `patch`-only) because removing `--share-scope` is a CLI signature change. Per project policy, future releases revert to patch-only unless explicitly requested.
+
 ## [0.2.2] — 2026-05-20
 
 ### Added

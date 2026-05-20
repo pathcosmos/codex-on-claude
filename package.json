@@ -1,6 +1,6 @@
 {
   "name": "codex-on-claude",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Bridge that lets Claude Code call OpenAI Codex CLI as an MCP sub-agent, with installable Skills/Agents/Plugin, a continuous improvement loop, and a local-only usage analyzer.",
   "keywords": [
     "claude-code",
@@ -40,5 +40,8 @@
   },
   "engines": {
     "node": ">=18.17"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.4.3"
   }
 }

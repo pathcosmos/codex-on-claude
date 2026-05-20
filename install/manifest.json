@@ -1,6 +1,6 @@
 {
   "$schema": "./manifest.schema.json",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "name": "codex-on-claude",
   "description": "Install bridge components that let Claude Code call OpenAI Codex CLI via MCP.",
   "questions": {
@@ -48,27 +48,6 @@
           "key": "mixed",
           "label": "상황별 혼용 (권장) / mixed per call (recommended)",
           "installAgent": true
-        }
-      ]
-    },
-    "shareScope": {
-      "type": "single",
-      "label": "공유 범위 / share scope",
-      "choices": [
-        {
-          "key": "local",
-          "label": "본인 로컬만 / local user only",
-          "installPluginBundle": false
-        },
-        {
-          "key": "projects",
-          "label": "다른 프로젝트도 이식 / portable across projects",
-          "installPluginBundle": false
-        },
-        {
-          "key": "team",
-          "label": "팀/외부 배포 (Plugin 번들) / team or external (Plugin bundle)",
-          "installPluginBundle": true
         }
       ]
     },
@@ -170,10 +149,6 @@
       "source": "components/skills/codex-threads",
       "target": "skills/codex-threads"
     }
-  },
-  "pluginBundle": {
-    "source": "components/plugin",
-    "target": "plugins/marketplaces/codex-bridge"
   },
   "mcp": {
     "name": "codex",

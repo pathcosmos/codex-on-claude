@@ -99,15 +99,16 @@ node install/install.mjs
 codex-on-claude \
   --patterns=review,followup,fix,routine \
   --context-policy=mixed \
-  --share-scope=local \
   --improvement-loop=on-demand \
   --threads=basic \
   --yes
 ```
 
+> v0.3에서 `--share-scope` 플래그는 deprecated. 팀 배포는 GitHub repo (https://github.com/pathcosmos/codex-on-claude)를 직접 clone하여 동봉된 `install/install.mjs` 를 실행하는 방식을 권장합니다.
+
 ---
 
-## 설치 시 묻는 다섯 가지 옵션 (v0.2+)
+## 설치 시 묻는 네 가지 옵션 (v0.3+)
 
 각 답에 따라 설치되는 컴포넌트가 달라진다. 모든 옵션은 나중에 `codex-on-claude reconfigure`로 변경 가능.
 
@@ -128,15 +129,7 @@ codex-on-claude \
 | `summarize` — 격리 권장 | `codex-reviewer` Agent 추가 설치 |
 | `mixed` — 상황별 혼용 (추천) | Skill + Agent 둘 다 |
 
-### 3. 공유 범위 (single)
-
-| 선택 | 결과 |
-|---|---|
-| `local` — 본인 로컬만 | `~/.claude/` 아래만 배치 |
-| `projects` — 다른 프로젝트도 이식 | user-scope + 프로젝트 이식 가이드 |
-| `team` — 팀/외부 배포 | Plugin marketplace 번들 빌드 |
-
-### 4. 지속 개선 루프 (single)
+### 3. 지속 개선 루프 (single)
 
 | 선택 | 동작 |
 |---|---|
@@ -148,7 +141,7 @@ codex-on-claude \
 >
 > 자동화 시점에 대한 주의: `on-demand` 모드는 *Skill 본문이 그렇게 안내하기 때문에* log가 쌓이지, OS 레벨 hook이 자동으로 가로채는 게 아니다. LLM이 절차를 건너뛰면 해당 호출은 로그에 누락된다. 결정적 누락 방지가 필요하면 v0.3+ 의 `auto-on-skill` 옵션 (PostToolUse hook 기반) 또는 직접 `codex-on-claude log ...` 명령을 호출 후 실행하라.
 
-### 5. Thread 영속 저장 (single, v0.2+)
+### 4. Thread 영속 저장 (single, v0.2+)
 
 | 선택 | 결과 |
 |---|---|
@@ -184,8 +177,8 @@ codex-on-claude \
 ### Agent (`~/.claude/agents/codex-reviewer.md`)
 대량 응답을 격리 컨텍스트에서 처리하고 메인엔 요약만 반환. 컨텍스트 정책이 `summarize` 또는 `mixed`일 때 설치.
 
-### Plugin bundle (`~/.claude/plugins/marketplaces/codex-bridge/`)
-공유 범위가 `team`일 때만. 동일 인터랙션을 다른 사람도 경험.
+### Plugin bundle (deprecated v0.3+)
+이전 버전(0.2.x)에서 `--share-scope=team` 으로 설치한 사용자에게는 `~/.claude/plugins/marketplaces/codex-bridge/` 가 남아 있을 수 있습니다. v0.3부터는 자동 생성/제거하지 않으며, 필요 시 사용자가 직접 정리합니다. 팀 배포는 GitHub 저장소를 그대로 clone해서 설치 스크립트를 공유하세요.
 
 ---
 
@@ -392,8 +385,6 @@ codex-on-claude/
 │   └── codex-log/SKILL.md            (improvement-loop ≠ off)
 ├── agents/
 │   └── codex-reviewer.md             (context-policy ∈ {summarize, mixed})
-├── plugins/
-│   └── marketplaces/codex-bridge/    (share-scope = team)
 └── codex-on-claude/
     ├── config.json                   설치 시 선택 결과
     ├── logs/usage-YYYY-MM-DD.jsonl   사용 로그

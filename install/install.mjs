@@ -30,6 +30,7 @@ const STATE_DIR = path.join(CLAUDE_DIR, "codex-on-claude");
 const STATE_FILE = path.join(STATE_DIR, "config.json");
 
 const MANIFEST_PATH = path.join(__dirname, "manifest.json");
+const PKG_JSON_PATH = path.join(__dirname, "..", "package.json");
 
 // ANSI helpers
 const c = {
@@ -1130,6 +1131,18 @@ async function main() {
     err(`Failed to load manifest: ${MANIFEST_PATH}`);
     process.exit(1);
   }
+
+  // Drift guard: package.json is the npm-published source of truth. If a release
+  // bumps package.json but forgets manifest.json, the installer would otherwise
+  // show "(same version)" and write the stale version to state.json — making
+  // `npx codex-on-claude@latest` appear to no-op for users upgrading.
+  try {
+    const pkg = await readJson(PKG_JSON_PATH);
+    if (pkg?.version && pkg.version !== manifest.version) {
+      warn(`manifest.json version (${manifest.version}) ≠ package.json version (${pkg.version}). Using package.json — this is a release-packaging bug, please report.`);
+      manifest.version = pkg.version;
+    }
+  } catch { /* package.json is optional at runtime; manifest is authoritative if missing */ }
 
   // Keep automation stdout clean while preserving the interactive banner on stderr.
   console.error(`${c.bold}codex-on-claude${c.reset} v${manifest.version}`);

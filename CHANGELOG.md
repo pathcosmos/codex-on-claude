@@ -2,6 +2,26 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.2] — 2026-05-20
+
+### Changed (docs / i18n)
+- All installer prompts, status output, deprecation warnings, alias migration lines, and section headers now in English.
+- All `install/manifest.json` question and choice labels translated to English (option keys unchanged).
+- All Skill / Agent prose translated to English. Code blocks, file paths, and shell snippets preserved verbatim. Stale references refreshed against the v0.3.1 surface (`auto-on-skill` hooks, `threads latest`, silent-new-session detection).
+- `install/analyze.mjs` rule titles / findings / recommendations translated to English.
+- `README.md` rewritten end-to-end in English and brought current to the 0.3.1 feature set (4-question flow, auto-on-skill PostToolUse hooks, `threads latest`, silent-new-session detection, arrow-key UI). New **"Updating codex-on-claude"** section explains the `npm update` / `npx@latest` / `reconfigure` / rollback / "what update touches" flow. Korean mirror at `README.ko.md`.
+- Historical Korean memos moved to `docs/ko/`; new English summaries at `docs/implementation-log.md` and `docs/test-report-2026-05-20.md`.
+- `package.json` `description` refreshed to reflect post-0.3.0 reality (no plugin bundle, auto-on-skill hooks, persistent threads).
+
+### Added (UX, still patch — no flag / CLI signature changes)
+- Reconfigure now opens with a **"Current selections" panel** so the user sees what was saved before any picker fires.
+- Each question's picker opens with the existing answer pre-checked / highlighted (via `@inquirer/prompts` defaults).
+- After each pick, a **kept / changed (a → b)** badge prints so the user knows what changed.
+- A **final review screen** (both fresh install and reconfigure) lists every selection with "(was: …)" deltas and offers `Apply / Edit again / Cancel`. Choosing **Edit again** loops back with the draft selections pre-checked (so partial changes survive the loop).
+- `--yes` skips the review and applies immediately. Non-TTY environments also bypass cleanly.
+
+No behavioral or schema changes beyond the additive UX. Pure documentation / i18n / UX patch.
+
 ## [0.3.1] — 2026-05-20
 
 ### Added (backward-compatible patch)
@@ -39,7 +59,7 @@ All notable changes to `codex-on-claude` are documented here. Format loosely fol
 
 ### Added
 - `codex-on-claude threads latest [--format=id|json]` — return the most recently-touched thread deterministically. External regression harnesses can use this instead of grepping LLM response text for `threadId`.
-- `codex-on-claude doctor` now also verifies the `codex` MCP server is registered and `Connected`. README "사전 요구사항" updated accordingly.
+- `codex-on-claude doctor` now also verifies the `codex` MCP server is registered and `Connected`. README "Prerequisites" updated accordingly.
 - `codex-on-claude threads resume <id> "prompt"` now detects **silent new-session** behavior of codex CLI 0.131 — if `codex exec resume` returns a different `thread_id` than requested, it surfaces `SILENT_NEW_SESSION` to stderr, records an incident on the original thread (`issue=silent-new-session, outcome=lost-context`), and registers the new thread as a bifurcation.
 
 ### Changed (docs/Skill prose only — no behavior change)

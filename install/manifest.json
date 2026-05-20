@@ -1,84 +1,84 @@
 {
   "$schema": "./manifest.schema.json",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "name": "codex-on-claude",
   "description": "Install bridge components that let Claude Code call OpenAI Codex CLI via MCP.",
   "questions": {
     "patterns": {
       "type": "multi",
-      "label": "Codex 호출 패턴 / Codex invocation patterns",
+      "label": "Codex invocation patterns",
       "choices": [
         {
           "key": "review",
-          "label": "단발 read-only 검토 / one-shot read-only review",
+          "label": "One-shot read-only review",
           "skills": ["codex-review"]
         },
         {
           "key": "followup",
-          "label": "긴 멀티턴 세션 / long multi-turn session",
+          "label": "Long multi-turn session",
           "skills": ["codex-followup", "codex-resume"]
         },
         {
           "key": "fix",
-          "label": "워크스페이스 수정 위임 / workspace-write delegation",
+          "label": "Workspace-write delegation (let Codex edit files)",
           "skills": ["codex-fix"]
         },
         {
           "key": "routine",
-          "label": "정형화된 반복 작업 / templated repeating job",
+          "label": "Templated repeating job",
           "skills": ["codex-routine"]
         }
       ]
     },
     "contextPolicy": {
       "type": "single",
-      "label": "Codex 응답 컨텍스트 정책 / Codex response context policy",
+      "label": "Codex response context policy",
       "choices": [
         {
           "key": "direct",
-          "label": "메인에 직접 표시 / show directly in main context",
+          "label": "Show directly in main context",
           "installAgent": false
         },
         {
           "key": "summarize",
-          "label": "요약만 메인으로 (격리) / summary only via subagent",
+          "label": "Summary only via subagent (isolation)",
           "installAgent": true
         },
         {
           "key": "mixed",
-          "label": "상황별 혼용 (권장) / mixed per call (recommended)",
+          "label": "Mixed per call (recommended)",
           "installAgent": true
         }
       ]
     },
     "improvementLoop": {
       "type": "single",
-      "label": "지능적 지속 개선 루프 / continuous improvement loop",
+      "label": "Continuous improvement loop",
       "choices": [
         {
           "key": "off",
-          "label": "끔 / disabled — log/analyze/improve 미설치, hook 없음",
+          "label": "Off — no log/analyze/improve skills, no hooks",
           "enableLogging": false,
           "installAnalyzeSkill": false,
           "registerHooks": false
         },
         {
           "key": "manual",
-          "label": "수동 — Skill prose의 MUST 절차로 log 호출. OS hook 없음. (이전 on-demand)",
+          "label": "Manual — Skill prose triggers `codex-on-claude log`; no OS hook (was: on-demand)",
           "enableLogging": true,
           "installAnalyzeSkill": true,
           "registerHooks": false
         },
         {
           "key": "auto-on-skill",
-          "label": "자동 — PostToolUse hook이 mcp__codex__codex 호출마다 log 자동 append (~/.claude/settings.json 변경 동의 필요)",
+          "label": "Auto — PostToolUse hook auto-logs every mcp__codex__codex call (modifies ~/.claude/settings.json)",
           "enableLogging": true,
           "installAnalyzeSkill": true,
           "registerHooks": true
         },
         {
           "key": "periodic",
-          "label": "주기적 — auto-on-skill 위에 cron/loop 기반 정기 analyze 안내 추가",
+          "label": "Periodic — auto-on-skill plus cron/loop-friendly analyze guidance",
           "enableLogging": true,
           "installAnalyzeSkill": true,
           "registerHooks": true,
@@ -91,17 +91,17 @@
     },
     "threads": {
       "type": "single",
-      "label": "Thread 영속 저장 / persistent thread catalog",
+      "label": "Persistent thread catalog",
       "choices": [
         {
           "key": "off",
-          "label": "끔 / disabled (no catalog)",
+          "label": "Off — no catalog",
           "enableThreads": false,
           "installThreadsSkill": false
         },
         {
           "key": "basic",
-          "label": "기본 — threadId + title/tags/lastUsed (권장 default)",
+          "label": "Basic — threadId + title/tags/lastUsed (recommended default)",
           "enableThreads": true,
           "installThreadsSkill": true,
           "captureSummaries": false,
@@ -109,7 +109,7 @@
         },
         {
           "key": "full",
-          "label": "전체 — 작업 문맥(goal/outcome/decision/note) + incidents + fallbackStrategy",
+          "label": "Full — work context (goal/outcome/decision/note) + incidents + fallbackStrategy",
           "enableThreads": true,
           "installThreadsSkill": true,
           "captureSummaries": true,

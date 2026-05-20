@@ -91,9 +91,9 @@ function ruleLargeResponsesNotAgent(entries) {
   return [{
     id: "token-efficiency-route-via-agent",
     category: "token-efficiency",
-    title: "큰 응답을 격리 Agent로 라우팅",
-    finding: `≥5KB 응답 ${big.length}건이 메인 컨텍스트로 직접 들어왔습니다 (누적 ${totalKB}KB).`,
-    recommendation: "이 패턴은 codex-reviewer subagent로 전환하세요. contextPolicy=mixed 또는 summarize 권장.",
+    title: "Route large responses through the isolated agent",
+    finding: `${big.length} response(s) ≥5KB landed directly in the main context (cumulative ${totalKB}KB).`,
+    recommendation: "Switch this pattern to the codex-reviewer subagent — recommended contextPolicy=mixed or summarize.",
     applyHint: "codex-on-claude reconfigure --context-policy=mixed --yes",
     examples: sample,
   }];
@@ -110,9 +110,9 @@ function ruleRepeatedPrompts(entries) {
   return top.slice(0, 2).map(([key, n], i) => ({
     id: `routine-candidate-${i}`,
     category: "new-skill-or-routine",
-    title: "반복 패턴 → routine/Skill 후보",
-    finding: `유사한 호출 패턴(${key})이 ${n}회 반복되었습니다.`,
-    recommendation: "이 패턴을 /codex-routine으로 등록해 매번 옵션/지시문 입력을 줄이세요.",
+    title: "Repeated pattern — routine / Skill candidate",
+    finding: `Similar call shape (${key}) repeated ${n} times.`,
+    recommendation: "Bundle as a /codex-routine so the standard options + prompt boilerplate aren't re-typed each time.",
     applyHint: "/codex-routine <name>",
   }));
 }
@@ -123,9 +123,9 @@ function ruleSandboxMismatch(entries) {
   return [{
     id: "sandbox-downgrade",
     category: "sandbox-safety",
-    title: "workspace-write 호출이 실제 수정 없이 끝남",
-    finding: `workspace-write 호출 ${writeButShortResp.length}건의 응답이 0.5KB 미만 — 실제 수정이 일어나지 않은 것으로 보입니다.`,
-    recommendation: "동일 패턴을 read-only로 다운그레이드해 안전성을 높이세요. 필요 시 별도 /codex-fix 호출.",
+    title: "workspace-write calls produced no actual edits",
+    finding: `${writeButShortResp.length} workspace-write call(s) returned <0.5KB — likely no edits were applied.`,
+    recommendation: "Downgrade this call shape to read-only for safer defaults; switch to /codex-fix only when edits are genuinely needed.",
   }];
 }
 
@@ -135,9 +135,9 @@ function ruleSessionNotFound(entries) {
   return [{
     id: "resume-fallback",
     category: "reliability",
-    title: "Session-not-found 빈도가 높음 — codex-resume 자동화",
-    finding: `${fails.length}건의 session-not-found가 발생했습니다.`,
-    recommendation: "/codex-resume Skill을 설치하고, /codex-followup 실패 시 자동 전환하도록 하세요.",
+    title: "Frequent session-not-found — automate via codex-resume",
+    finding: `${fails.length} session-not-found event(s) recorded.`,
+    recommendation: "Install the /codex-resume Skill and let it auto-trigger when /codex-followup fails.",
     applyHint: "codex-on-claude reconfigure --patterns=followup,... --yes",
   }];
 }
@@ -148,9 +148,9 @@ function ruleTimeouts(entries) {
   return [{
     id: "timeout-tuning",
     category: "performance",
-    title: "timeout 발생 — prompt 단축 또는 모델 조정",
-    finding: `${t.length}건의 timeout이 발생했습니다.`,
-    recommendation: "prompt를 좁히거나, Codex model 변경(예: gpt-5.5 → 더 빠른 모델)을 고려하세요.",
+    title: "Timeouts observed — shorten prompts or change model",
+    finding: `${t.length} timeout event(s) recorded.`,
+    recommendation: "Narrow the prompt or consider switching the Codex model (e.g. a faster variant).",
   }];
 }
 
@@ -159,9 +159,9 @@ function ruleNoLogs(entries) {
   return [{
     id: "no-data",
     category: "meta",
-    title: "분석 가능한 로그가 없습니다",
-    finding: "최근 N일 동안 사용 로그가 비어 있습니다.",
-    recommendation: "improvementLoop을 on-demand 이상으로 설정하고, codex-* Skill들을 사용해보세요. 또는 `codex-on-claude log ...`로 수동 기록.",
+    title: "No usage log entries to analyze",
+    finding: "The log is empty over the requested window.",
+    recommendation: "Set improvementLoop to manual / auto-on-skill and use the codex-* Skills, or append entries directly with `codex-on-claude log ...`.",
   }];
 }
 
@@ -184,9 +184,9 @@ function ruleStaleActiveThreads(_entries, threadsList) {
   return [{
     id: "stale-active-threads",
     category: "thread-hygiene",
-    title: "오래된 active thread 정리",
-    finding: `${stale.length}개 active thread가 14일 이상 미사용입니다 (예: ${stale.slice(0, 3).map((t) => t.title || t.threadId.slice(0, 8)).join(", ")}).`,
-    recommendation: "결론이 났다면 status를 resolved 또는 archived로 바꿔 카탈로그 노이즈를 줄이세요.",
+    title: "Stale active threads to clean up",
+    finding: `${stale.length} active thread(s) untouched for 14+ days (e.g. ${stale.slice(0, 3).map((t) => t.title || t.threadId.slice(0, 8)).join(", ")}).`,
+    recommendation: "Move concluded threads to status=resolved or archived to reduce catalog noise.",
     applyHint: `codex-on-claude threads status <id> resolved`,
   }];
 }
@@ -197,11 +197,11 @@ function ruleIncidentRepeat(_entries, threadsList) {
   return repeated.slice(0, 3).map((t) => ({
     id: `incident-repeat-${t.threadId.slice(0, 8)}`,
     category: "reliability",
-    title: `thread ${t.threadId.slice(0, 8)}… 에 incident가 ${t.incidents.length}건 누적`,
-    finding: `같은 thread에 incident가 3건 이상 — fallback 전략이 부적합할 수 있습니다.`,
+    title: `thread ${t.threadId.slice(0, 8)}… has accumulated ${t.incidents.length} incidents`,
+    finding: `3+ incidents on the same thread — current fallbackStrategy may be a poor fit.`,
     recommendation: t.fallbackStrategy === "ask"
-      ? "fallbackStrategy를 'new' 또는 'auto-resume'으로 바꿔 자동 처리로 전환을 검토하세요."
-      : "fallbackStrategy 변경 또는 thread를 archive하고 새로 시작하는 것을 검토하세요.",
+      ? "Consider switching fallbackStrategy to 'new' or 'auto-resume' to handle this automatically."
+      : "Change the fallbackStrategy, or archive this thread and start fresh.",
     applyHint: `codex-on-claude threads fallback ${t.threadId} new`,
   }));
 }
@@ -218,9 +218,9 @@ function ruleSimilarTagCluster(_entries, threadsList) {
   return [{
     id: "tag-cluster-routine",
     category: "new-skill-or-routine",
-    title: "같은 태그의 thread가 여러 개 — routine/통합 후보",
-    finding: `태그 "${heavy[0][0]}" 가 ${heavy[0][1]}개 thread에 반복 사용됩니다.`,
-    recommendation: "이 패턴을 /codex-routine으로 등록하거나 상위 thread를 만들어 결과를 모으세요.",
+    title: "Multiple threads share the same tag — routine / consolidation candidate",
+    finding: `Tag "${heavy[0][0]}" appears across ${heavy[0][1]} threads.`,
+    recommendation: "Register this pattern as a /codex-routine, or create a parent thread to consolidate outcomes.",
     applyHint: `codex-on-claude threads list --tag=${heavy[0][0]}`,
   }];
 }
@@ -297,7 +297,7 @@ function renderText(r) {
   }
   lines.push("");
   if (!r.candidates.length) {
-    lines.push("개선 후보 없음. 현재 사용 패턴이 양호하거나 데이터가 부족합니다.");
+    lines.push("No improvement candidates. Either current usage looks healthy or the window has too little data.");
   } else {
     lines.push("Improvement candidates:");
     r.candidates.forEach((cnd, i) => {

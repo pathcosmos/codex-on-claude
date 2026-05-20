@@ -2,6 +2,13 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.5] — 2026-05-20
+
+### Fixed (release-packaging bug from 0.3.4)
+
+- **`npx --yes codex-on-claude@latest` looked like a no-op when upgrading from 0.3.3 → 0.3.4.** `install/manifest.json` was left at `"version": "0.3.3"` in the 0.3.4 release while `package.json` correctly read `"0.3.4"`. The installer reads `manifest.json` for the version it shows in the banner and writes to `~/.claude/codex-on-claude/state.json`, so even though npm delivered the 0.3.4 tarball, users saw `v0.3.3 (same version)` and `state.json` kept recording `"version": "0.3.3"` — the upgrade UX silently broke. Bumped `manifest.json` to match.
+- **Added startup drift guard so this can't silently happen again.** `install.mjs:main` now loads `package.json` alongside `manifest.json`; if the two versions disagree it logs a `warn(...)` and uses `package.json` as the source of truth (it is what npm publishes against). Future releases that bump only `package.json` will self-heal the banner / state version and surface a visible warning instead of degrading quietly.
+
 ## [0.3.4] — 2026-05-20
 
 ### Fixed (production bug fixes — auto-on-skill / threads / hook safety)

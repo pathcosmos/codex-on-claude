@@ -1,0 +1,11 @@
+{
+  "scenario": "B3-bugfix",
+  "criteria": [
+    { "name": "tests_pass_after_fix", "type": "tests_pass" },
+    { "name": "only_buggy_py_touched", "type": "changed_files_subset_of", "args": { "allowlist": ["buggy.py"] } },
+    { "name": "at_least_one_file_changed", "type": "changed_files_min", "args": { "min": 1 } },
+    { "name": "beta_used_codex_fix", "type": "arm_specific",
+      "args": { "arm": "beta", "inner_type": "tool_call_count_min",
+                "inner_args": { "name": "mcp__codex__codex", "min": 1 } } }
+  ]
+}

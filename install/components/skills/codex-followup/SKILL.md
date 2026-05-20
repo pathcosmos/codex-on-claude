@@ -58,3 +58,16 @@ the MCP server process has restarted. Suggest `/codex-resume`, which goes throug
 ## Guardrails
 - Do not invoke with an empty or malformed `threadId`. Confirm with the user instead.
 - The sandbox follows the prior session's setting. If a different sandbox is needed, start a fresh `mcp__codex__codex` call.
+- The follow-up call inherits the **model + reasoning** that the original thread was created with — you cannot change them via `codex-reply`. If you need to switch tier (e.g. drop to fallback because of quota), start a fresh `mcp__codex__codex` call with the desired settings and a new threadId.
+
+## On Codex quota / rate-limit error
+
+If `mcp__codex__codex-reply` returns `rate_limit_exceeded` / `quota` / `429` / `usage_limit_reached`, the thread is unrecoverable on this tier — do NOT retry the same threadId. Instead:
+
+1. Capture the original thread's last user-visible context (the prior `codex-on-claude threads outcome ...` line, if recorded).
+2. Open a fresh `mcp__codex__codex(...)` call with the fallback tier:
+   ```
+     model: "{{codexFallbackModel}}"
+     config: { model_reasoning_effort: "{{codexFallbackReasoning}}" }
+   ```
+3. Log via `codex-on-claude log --outcome=fallback --error-kind=quota`. Inform the user a new threadId was created.

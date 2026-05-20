@@ -1,0 +1,9 @@
+{
+  "scenario": "B7-arch",
+  "criteria": [
+    { "name": "layer_field_valid", "type": "final_json_field", "args": { "field": "layer", "in": ["controller", "service", "repository", "client"] } },
+    { "name": "cites_at_least_two_files", "type": "final_json_array_min", "args": { "field": "files_cited", "min": 2 } },
+    { "name": "tradeoff_present", "type": "final_json_field", "args": { "field": "tradeoff" } },
+    { "name": "prose_under_300_words", "type": "word_count_max", "args": { "max": 380 } }
+  ]
+}

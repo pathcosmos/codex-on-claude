@@ -1,0 +1,12 @@
+{
+  "scenario": "B5-secaudit",
+  "notes": "Planted: SQLi (line ~12), XSS (~14), weak crypto MD5 (~20), hard-coded secret (~7).",
+  "criteria": [
+    { "name": "found_at_least_four", "type": "final_json_array_min", "args": { "field": "findings", "min": 4 } },
+    { "name": "found_at_most_five", "type": "final_json_array_max", "args": { "field": "findings", "max": 5 } },
+    { "name": "mentions_sqli", "type": "contains_text", "args": { "needle": "sql" } },
+    { "name": "mentions_xss", "type": "contains_text", "args": { "needle": "xss" } },
+    { "name": "mentions_md5_or_weak", "type": "contains_text", "args": { "needle": "md5" } },
+    { "name": "mentions_secret_or_hardcoded", "type": "contains_text", "args": { "needle": "secret" } }
+  ]
+}

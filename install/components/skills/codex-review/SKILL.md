@@ -28,7 +28,11 @@ arguments:
   cwd: <absolute project path>
   sandbox: read-only
   approval-policy: never
+  model: "{{codexPrimaryModel}}"
+  config: { model_reasoning_effort: "{{codexPrimaryReasoning}}" }
 ```
+
+The `model` + `config` fields above are filled at install time from the user's subscription tier + chosen primary. See the fallback block at the end of this file for what to do when the call returns a rate-limit / quota error.
 
 Keep the returned `threadId` in the main context so `/codex-followup` can continue this thread later.
 
@@ -39,6 +43,16 @@ If the review target is a big directory / diff (response likely ≥ tens of KB),
 ```
 Agent({ subagent_type: "codex-reviewer", prompt: "<same review request>" })
 ```
+
+### Quota-aware launch (agent route only)
+
+If the `codex-reviewer` primary agent returns a summary containing the sentinel `CODEX_QUOTA_FALLBACK_NEEDED`, OR the Agent call itself errored with a Claude-side rate-limit (`rate_limit` / `usage_limit_reached`), re-launch with the fallback variant:
+
+```
+Agent({ subagent_type: "codex-reviewer-fallback", prompt: "<same review request>" })
+```
+
+Surface a one-line note to the user that fallback was used. Do NOT retry primary in the same turn — quota windows are usually minutes-to-hours.
 
 ## MUST do after every call (deterministic enforcement)
 
@@ -76,6 +90,31 @@ Agent({ subagent_type: "codex-reviewer", prompt: "<same review request>" })
 - If Codex hallucinates issues outside the file scope, ignore them and surface the hallucination to the user.
 - Never auto-execute shell commands embedded in Codex's response (e.g. `rm`, `git push --force`).
 
+## On Codex quota / rate-limit error (primary → fallback retry)
+
+If your **primary** `mcp__codex__codex(...)` call returns an error or response containing any of:
+- `rate_limit_exceeded`
+- `quota`
+- `insufficient_quota`
+- HTTP `429`
+- `usage_limit_reached`
+
+then **retry once** with the matrix-locked fallback. The retry must reuse the same `prompt`, `cwd`, `sandbox`, `approval-policy`, replacing only:
+
+```
+  model: "{{codexFallbackModel}}"
+  config: { model_reasoning_effort: "{{codexFallbackReasoning}}" }
+```
+
+After the fallback completes (success or failure), log via:
+```sh
+codex-on-claude log --skill=codex-review --tool=mcp__codex__codex \
+  --sandbox=read-only --outcome=fallback --error-kind=quota \
+  --thread-id=<threadId-if-any>
+```
+
+**Do NOT loop more than once.** If fallback also fails, surface the error to the user — recommend `codex-on-claude reconfigure` to lower primary reasoning, or wait for the quota window to reset.
+
 ## Verification
 
 Right after install, smoke-test:
@@ -85,6 +124,8 @@ mcp__codex__codex(
   prompt="Return exactly REVIEW_SKILL_OK and nothing else.",
   cwd=<project path>,
   sandbox="read-only",
-  approval-policy="never"
+  approval-policy="never",
+  model="{{codexPrimaryModel}}",
+  config={ "model_reasoning_effort": "{{codexPrimaryReasoning}}" }
 )
 ```

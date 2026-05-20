@@ -37,6 +37,8 @@ arguments:
   cwd: <absolute project path>
   sandbox: workspace-write
   approval-policy: on-request
+  model: "{{codexPrimaryModel}}"
+  config: { model_reasoning_effort: "{{codexPrimaryReasoning}}" }
 ```
 
 ## After the call
@@ -73,6 +75,17 @@ arguments:
    ```
    With `auto-on-skill` / `periodic`, the PostToolUse hook handles logging.
 
+## On Codex quota / rate-limit error (primary → fallback retry)
+
+Same protocol as `/codex-review`: if the primary call returns `rate_limit_exceeded` / `quota` / `insufficient_quota` / HTTP `429` / `usage_limit_reached`, retry **once** with the matrix-locked fallback by replacing only:
+
+```
+  model: "{{codexFallbackModel}}"
+  config: { model_reasoning_effort: "{{codexFallbackReasoning}}" }
+```
+
+Log via `codex-on-claude log --outcome=fallback --error-kind=quota`. Do NOT loop. If fallback also fails, abort the edit and notify the user — never partially commit a fix that the model couldn't complete in either tier.
+
 ## Verification
 
 Right after install (dry-run, no actual edits):
@@ -82,6 +95,8 @@ mcp__codex__codex(
   prompt="List the files in CWD root and reply with FIX_SKILL_OK. Do not edit anything.",
   cwd=<project path>,
   sandbox="workspace-write",
-  approval-policy="on-request"
+  approval-policy="on-request",
+  model="{{codexPrimaryModel}}",
+  config={ "model_reasoning_effort": "{{codexPrimaryReasoning}}" }
 )
 ```

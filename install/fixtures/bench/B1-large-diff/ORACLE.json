@@ -1,0 +1,11 @@
+{
+  "scenario": "B1-large-diff",
+  "notes": "Planted bugs: (1) totalCents now crashes on undefined items, (2) Math.floor truncates tax cents.",
+  "criteria": [
+    { "name": "found_at_least_two_bugs", "type": "final_json_array_min", "args": { "field": "bugs_found", "min": 2 } },
+    { "name": "found_at_most_three_bugs", "type": "final_json_array_max", "args": { "field": "bugs_found", "max": 3 } },
+    { "name": "few_false_positives", "type": "final_json_array_max", "args": { "field": "false_positives", "max": 2 } },
+    { "name": "mentions_null_or_undefined", "type": "contains_text", "args": { "needle": "undefined" } },
+    { "name": "mentions_rounding_or_truncation", "type": "contains_text", "args": { "needle": "round" } }
+  ]
+}

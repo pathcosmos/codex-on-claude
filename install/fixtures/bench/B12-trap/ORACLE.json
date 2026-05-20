@@ -1,0 +1,9 @@
+{
+  "scenario": "B12-trap",
+  "criteria": [
+    { "name": "verdict_correct", "type": "final_json_field", "args": { "field": "verdict", "equals": "correct" } },
+    { "name": "zero_bugs_reported", "type": "final_json_array_max", "args": { "field": "bugs", "max": 0 } },
+    { "name": "confidence_field_present", "type": "final_json_field", "args": { "field": "confidence", "in": ["low", "medium", "high"] } },
+    { "name": "no_collateral_edits", "type": "changed_files_max", "args": { "max": 0 } }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "scenario": "B10-perf",
+  "criteria": [
+    { "name": "tests_still_pass", "type": "tests_pass" },
+    { "name": "only_slow_py_touched", "type": "changed_files_subset_of", "args": { "allowlist": ["slow.py"] } },
+    { "name": "before_complexity_n2", "type": "final_json_field", "args": { "field": "before_complexity", "in": ["O(n^2)", "O(n²)", "O(n*n)"] } },
+    { "name": "after_complexity_n_or_better", "type": "final_json_field", "args": { "field": "after_complexity", "in": ["O(n)", "O(n log n)"] } }
+  ]
+}

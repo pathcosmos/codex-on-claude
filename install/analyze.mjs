@@ -154,6 +154,28 @@ function ruleTimeouts(entries) {
   }];
 }
 
+function ruleFrequentFallback(entries) {
+  // v0.4.1 — counts entries where outcome === "fallback" (model/tier downgrade
+  // triggered by quota/rate-limit). ≥5 in the analyzed window suggests the
+  // user's primary tier or reasoning is mis-sized.
+  const fb = entries.filter((e) => e.outcome === "fallback");
+  if (fb.length < 5) return [];
+  const byKind = {};
+  for (const e of fb) {
+    const k = e.errorKind || "unknown";
+    byKind[k] = (byKind[k] || 0) + 1;
+  }
+  const breakdown = Object.entries(byKind).map(([k, n]) => `${k}=${n}`).join(", ");
+  return [{
+    id: "frequent-fallback",
+    category: "reliability",
+    title: "Primary tier is exhausting quota frequently",
+    finding: `${fb.length} fallback events in window (${breakdown}). Primary model/reasoning is likely too aggressive for this subscription.`,
+    recommendation: "Either raise subscription tier, lower primary reasoning (e.g. xhigh → high), or pick a less-quota-intensive primary model. Run `codex-on-claude reconfigure` to adjust.",
+    applyHint: `codex-on-claude reconfigure`,
+  }];
+}
+
 function ruleNoLogs(entries) {
   if (entries.length > 0) return [];
   return [{
@@ -231,6 +253,7 @@ const RULES = [
   ruleSandboxMismatch,
   ruleSessionNotFound,
   ruleTimeouts,
+  ruleFrequentFallback,
   ruleNoLogs,
 ];
 

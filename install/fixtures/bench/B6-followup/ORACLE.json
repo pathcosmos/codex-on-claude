@@ -1,0 +1,12 @@
+{
+  "scenario": "B6-followup",
+  "criteria": [
+    { "name": "mentions_duplicate_console_log", "type": "contains_text", "args": { "needle": "duplicate" } },
+    { "name": "mentions_even", "type": "contains_text", "args": { "needle": "even" } },
+    { "name": "root_cause_field_present", "type": "final_json_field", "args": { "field": "root_cause_summary" } },
+    { "name": "fix_suggestion_field_present", "type": "final_json_field", "args": { "field": "fix_suggestion" } },
+    { "name": "beta_reused_single_thread", "type": "arm_specific",
+      "args": { "arm": "beta", "inner_type": "tool_call_count_min",
+                "inner_args": { "name": "mcp__codex__codex-reply", "min": 3 } } }
+  ]
+}

@@ -2,6 +2,44 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1] — 2026-05-20
+
+### Added — subscription-aware model/reasoning + automatic fallback (largest user-facing change since 0.3.0)
+
+- **Subscription matrix + per-side model & reasoning pinning.** Install now asks for the user's Claude tier (`free / pro / max / team / enterprise`) and Codex tier (`free / plus / pro / team`), then constrains the **primary model + reasoning effort** choices to what each tier actually allows. The two sides are pinned independently — typical setup is `--reviewer-model-primary=opus --reviewer-reasoning-primary=xhigh` for the Claude reviewer subagent plus `--codex-model-primary=gpt-5.5 --codex-reasoning-primary=xhigh` for direct Codex calls. Reasoning vocabulary (`low / medium / high / xhigh / max`) is shared by both sides: Claude's native `--effort` flag and Codex's `model_reasoning_effort` config key. See README §5–§6 and `install/manifest.json:modelMatrix`.
+- **Locked fallback per tier.** Each subscription tier has a `base` model + reasoning that becomes the fallback target. Fallback is automatically locked to that base (the installer warns and re-snaps if you try to override `--*-model-fallback=`). The lock prevents users from accidentally configuring a fallback that the subscription can't reach either.
+- **Quota-aware runtime fallback.** When a Codex MCP call returns `rate_limit_exceeded` / `quota` / HTTP `429` / `usage_limit_reached`, the Skill prose retries **once** with the fallback model + reasoning, then logs the event with `outcome=fallback`, `errorKind=quota|rate_limit`. For the reviewer subagent route (`contextPolicy=summarize|mixed`), a sentinel line `CODEX_QUOTA_FALLBACK_NEEDED` from the primary agent triggers re-launch with the new `codex-reviewer-fallback` agent (`install/components/agents/codex-reviewer-fallback.md`). Direct `claude -p` callers use Claude's native `--fallback-model` flag.
+- **New analyzer rule `ruleFrequentFallback`.** Surfaces a candidate when ≥5 fallback events are observed in the analyzed window, with recommendation to upgrade the subscription or lower primary reasoning. New deterministic fixture: `install/fixtures/analyze-rules/logs/fallback-flurry.jsonl`.
+- **New `install/templater.mjs` module.** Tiny `{{dot.path}}` substitution applied to Skills / agents at install time. Unknown placeholders are left in place so drift surfaces visibly. The installer replaces the prior `copyTree` calls with `renderTree` / `renderFile` so the user's subscription + model choices flow into Skill MUST procedures and agent frontmatter.
+
+### Added — installer UX
+
+- 6 new CLI flags: `--subscription-claude`, `--subscription-codex`, `--codex-model-primary`, `--codex-reasoning-primary`, `--reviewer-model-primary`, `--reviewer-reasoning-primary`. Their fallback counterparts (`--*-fallback`) are accepted but locked to the matrix base.
+- The review screen now shows 6 new rows (`sub: claude`, `sub: codex`, `codex primary`, `codex fallback`, `reviewer primary`, `reviewer fallback`). Locked fallback rows render `(locked)` as a suffix that doesn't affect the unchanged/changed comparison.
+- `codex-on-claude status` prints the active subscription + primary/fallback model & reasoning for both sides.
+- `codex-on-claude reconfigure` pre-fills all 6 new fields from prior state. Subscription downgrade auto-snaps the primary to the new tier's defaults rather than silently writing invalid state.
+- `installed.agents` tracking added to state — primary AND fallback agent files are installed when `contextPolicy ∈ {summarize, mixed}`, and both are removed on uninstall. Backward-compat `installed.agent` (single) field preserved.
+
+### Added — docs / test coverage
+
+- New scenario group **G9** in `docs/test-scenarios-codex-calls.md` (8 scenarios): invalid combo rejection, placeholder-substitution gate, MCP-call-template content check, invalid model id with hint, reconfigure pre-fill, fallback prose simulation, analyzer rule on fixture, uninstall removes both agents.
+- New companion doc `docs/test-claude-vs-codex-bench.md` — paired α (Claude-only) / β (Claude + codex-on-claude) benchmark harness, 12 scenarios, drives `claude -p --model haiku` subprocesses; harness lives at `install/fixtures/bench/`. Documents the subagent-model-pin caveat (§7 #11).
+- README §5–§6 introduce subscription tiers + primary/fallback semantics and document the reasoning-effort vocabulary.
+
+### Internal
+
+- `manifest.json` adds `modelMatrix` + `modelMatrixVersion: "2026-05-20"` + `agentFallback` declaration.
+- `installed.agent` retained for backward-compat readers; new code reads `installed.agents` (array) preferentially.
+- All 5 user-facing Skills (codex-review / codex-fix / codex-routine / codex-followup / codex-resume) now contain `{{codexPrimaryModel}}` / `{{codexPrimaryReasoning}}` placeholders in their MCP call templates, plus a fallback retry block at the end. Followup and resume inherit the model from the originating thread but include fallback guidance when the thread becomes unrecoverable.
+- New regression guard scenarios G9-2 / G9-3: any future `{{...}}` left unsubstituted by the installer or any missing `model=` line in the MCP-call template fails install-time verification.
+
+### Known limitations
+
+- **Subagent reasoning is best-effort prose only.** Claude Code subagent frontmatter doesn't support `reasoning` / `effort` fields (only `model`). The reviewer agent's prose mentions the chosen effort level so a session that can raise effort independently does so, but the installer can't enforce it.
+- **Codex MCP doesn't auto-fallback.** The retry-on-quota behavior is encoded in Skill prose — an LLM that ignores the prose won't retry. A hard guarantee would need a wrapper hook around `mcp__codex__codex` calls (deferred).
+- **`claude --fallback-model` only swaps model, not reasoning effort.** Native fallback can't carry a separate effort level.
+- **`modelMatrix` drift.** Tier lineups shift over time. Stamped via `modelMatrixVersion`; the doctor command may grow a stale-warning in a future release.
+
 ## [0.3.5] — 2026-05-20
 
 ### Fixed (release-packaging bug from 0.3.4)

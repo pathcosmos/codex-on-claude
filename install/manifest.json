@@ -1,8 +1,24 @@
 {
   "$schema": "./manifest.schema.json",
-  "version": "0.3.5",
+  "version": "0.4.1",
   "name": "codex-on-claude",
   "description": "Install bridge components that let Claude Code call OpenAI Codex CLI via MCP.",
+  "modelMatrixVersion": "2026-05-20",
+  "modelMatrix": {
+    "claude": {
+      "free":       { "models": ["sonnet"],                "reasoning": ["medium", "low"],                       "base": { "id": "sonnet", "reasoning": "medium" } },
+      "pro":        { "models": ["sonnet", "opus"],         "reasoning": ["high", "medium", "low"],                "base": { "id": "sonnet", "reasoning": "medium" } },
+      "max":        { "models": ["haiku", "sonnet", "opus"], "reasoning": ["xhigh", "high", "medium", "low"],       "base": { "id": "sonnet", "reasoning": "medium" } },
+      "team":       { "models": ["haiku", "sonnet", "opus"], "reasoning": ["max", "xhigh", "high", "medium", "low"], "base": { "id": "sonnet", "reasoning": "medium" } },
+      "enterprise": { "models": ["haiku", "sonnet", "opus"], "reasoning": ["max", "xhigh", "high", "medium", "low"], "base": { "id": "sonnet", "reasoning": "medium" } }
+    },
+    "codex": {
+      "free": { "models": ["gpt-5"],                                  "reasoning": ["medium", "low"],                  "base": { "id": "gpt-5", "reasoning": "medium" } },
+      "plus": { "models": ["gpt-5", "gpt-5.5"],                       "reasoning": ["high", "medium", "low"],          "base": { "id": "gpt-5", "reasoning": "medium" } },
+      "pro":  { "models": ["gpt-5", "gpt-5.5", "gpt-5.5-codex"],      "reasoning": ["xhigh", "high", "medium", "low"], "base": { "id": "gpt-5", "reasoning": "medium" } },
+      "team": { "models": ["gpt-5", "gpt-5.5", "gpt-5.5-codex"],      "reasoning": ["xhigh", "high", "medium", "low"], "base": { "id": "gpt-5", "reasoning": "medium" } }
+    }
+  },
   "questions": {
     "patterns": {
       "type": "multi",
@@ -116,12 +132,38 @@
           "captureIncidents": true
         }
       ]
+    },
+    "subscriptionClaude": {
+      "type": "single",
+      "label": "Claude subscription tier (constrains model + reasoning choices)",
+      "choices": [
+        { "key": "free",       "label": "Free — Sonnet only, reasoning ≤ medium" },
+        { "key": "pro",        "label": "Pro — Sonnet/Opus, reasoning ≤ high" },
+        { "key": "max",        "label": "Max — full model lineup, reasoning ≤ xhigh (recommended)" },
+        { "key": "team",       "label": "Team — full lineup + reasoning up to max" },
+        { "key": "enterprise", "label": "Enterprise — same as Team" }
+      ]
+    },
+    "subscriptionCodex": {
+      "type": "single",
+      "label": "Codex subscription tier (constrains model + reasoning choices)",
+      "choices": [
+        { "key": "free", "label": "Free — gpt-5 only, reasoning ≤ medium" },
+        { "key": "plus", "label": "Plus — gpt-5 / gpt-5.5, reasoning ≤ high" },
+        { "key": "pro",  "label": "Pro — full Codex models + xhigh reasoning (recommended)" },
+        { "key": "team", "label": "Team — same as Pro" }
+      ]
     }
   },
   "agent": {
     "name": "codex-reviewer",
     "source": "components/agents/codex-reviewer.md",
     "target": "agents/codex-reviewer.md"
+  },
+  "agentFallback": {
+    "name": "codex-reviewer-fallback",
+    "source": "components/agents/codex-reviewer-fallback.md",
+    "target": "agents/codex-reviewer-fallback.md"
   },
   "skills": {
     "codex-review": {

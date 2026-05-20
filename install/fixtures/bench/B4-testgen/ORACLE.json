@@ -1,0 +1,8 @@
+{
+  "scenario": "B4-testgen",
+  "criteria": [
+    { "name": "test_file_created", "type": "changed_files_min", "args": { "min": 1 } },
+    { "name": "only_test_file_touched", "type": "changed_files_subset_of", "args": { "allowlist": ["calc.test.ts"] } },
+    { "name": "tests_pass", "type": "tests_pass" }
+  ]
+}

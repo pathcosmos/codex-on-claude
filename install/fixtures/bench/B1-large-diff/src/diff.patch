@@ -1,0 +1,26 @@
+diff --git a/order.js b/order.js
+index 1111111..2222222 100644
+--- a/order.js
++++ b/order.js
+@@ -1,14 +1,18 @@
+-export function totalCents(items, taxRate) {
+-  if (!items || items.length === 0) return 0;
+-  let total = 0;
+-  for (const it of items) total += it.priceCents * it.qty;
+-  return Math.round(total * (1 + taxRate));
++export function totalCents(items, taxRate) {
++  // PLANTED BUG #1 (null deref): items can be undefined; we removed the guard.
++  let total = 0;
++  for (const it of items) total += it.priceCents * it.qty;
++  // PLANTED BUG #2 (off-by-one rounding): tax should be applied per-item before round.
++  return Math.floor(total * (1 + taxRate));
+ }
+
+-export function applyDiscount(order, code) {
+-  if (!code) return order;
+-  const off = code === "TEN" ? 0.1 : 0;
+-  return { ...order, total: order.total * (1 - off) };
++export function applyDiscount(order, code) {
++  const off = code === "TEN" ? 0.1 : 0;            // dropped !code guard — harmless if upstream always passes string
++  return { ...order, total: order.total * (1 - off) };
+ }

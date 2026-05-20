@@ -936,6 +936,94 @@ Total live Codex MCP calls across the document, on Haiku:
 
 CLI-only and fixture-only scenarios (G1-2, G1-3, G2-*, G3-*, G4-4, G5-8, G6-{1..10}, G7-{1,2,4,5,6,7,8}) are free of external spend.
 
+---
+
+## Group 9 — Subscription + model/reasoning + fallback (v0.4.1)
+
+> 한국어 요약: v0.4.1 에서 도입된 구독 매트릭스 + primary/fallback 모델·성능 설정 + Skill prose 기반 fallback 라우팅을 검증. 대부분 CLI/파일시스템 결정론적 — G9-6 만 quota 시뮬레이션이 필요해 manual.
+
+### G9-1 — Invalid subscription × primary combo rejected
+
+| Field | |
+|---|---|
+| **Goal** | `--subscription-codex=plus --codex-reasoning-primary=xhigh --yes` 는 `plus` 티어가 xhigh 를 허용하지 않으므로 거부되고 base (`gpt-5/medium`) 를 hint 로 보여준다. |
+| **Setup** | Fresh `$HOME`. |
+| **Command** | ```sh<br>codex-on-claude --subscription-claude=max --subscription-codex=plus --codex-model-primary=gpt-5.5 --codex-reasoning-primary=xhigh --reviewer-model-primary=opus --reviewer-reasoning-primary=xhigh --patterns=review --context-policy=direct --improvement-loop=off --threads=off --yes 2>&1 \| tee /tmp/g9-1.log; echo "exit=$?"``` |
+| **Expected** | `/tmp/g9-1.log` 에 `codex reasoning "xhigh" not in tier "plus"` 및 `Hint: tier "plus" base = {"id":"gpt-5","reasoning":"medium"}`. State 파일 미생성. |
+| **Notes** | Validation 은 codex → claude 순서로 first-fail. Claude 쪽 invalid 만 테스트하려면 codex 쪽을 valid 로 두면 됨. |
+
+### G9-2 — All placeholders substituted after fresh install
+
+| Field | |
+|---|---|
+| **Goal** | 신규 설치 후 `~/.claude/skills/codex-*` + `~/.claude/agents/codex-reviewer*.md` 어디에도 unrendered `{{...}}` 가 남아 있지 않음. |
+| **Setup** | Fresh `$HOME`. |
+| **Command** | ```sh<br>codex-on-claude --subscription-claude=max --subscription-codex=pro --codex-model-primary=gpt-5.5 --codex-reasoning-primary=xhigh --reviewer-model-primary=opus --reviewer-reasoning-primary=xhigh --patterns=review,followup,fix --context-policy=mixed --improvement-loop=off --threads=basic --yes<br>! grep -rn '{{[a-zA-Z]' ~/.claude/skills/codex-* ~/.claude/agents/codex-reviewer*.md && echo CLEAN``` |
+| **Expected** | 마지막 줄: `CLEAN`. `grep` 가 매치 없음. |
+| **Notes** | 가장 강력한 install-time 회귀 가드 — templater drift 가 즉시 잡힘. |
+
+### G9-3 — Codex MCP call template carries model + reasoning lines
+
+| Field | |
+|---|---|
+| **Goal** | `codex-review/SKILL.md` 의 invocation 블록에 `model: "gpt-5.5"` 와 `model_reasoning_effort: "xhigh"` 가 모두 substitute 됨. Fallback 블록도 `gpt-5` + `medium`. |
+| **Setup** | G9-2 done. |
+| **Command** | `grep -nE 'model[: =]"gpt-' ~/.claude/skills/codex-review/SKILL.md \| sort -u` |
+| **Expected** | 출력에 `model: "gpt-5.5"` (primary 블록) 와 `model: "gpt-5"` (fallback 블록) 둘 다 포함. `model_reasoning_effort: "xhigh"` 와 `"medium"` 도 동일하게 둘 다. |
+| **Notes** | `codex-fix`, `codex-routine`, `codex-followup`, `codex-resume` 4 곳에도 같은 식으로 적용. |
+
+### G9-4 — Invalid model id rejected with matrix hint
+
+| Field | |
+|---|---|
+| **Goal** | 존재하지 않는 model id (`gpt-99`) 입력 시 installer 가 거부하고 `Allowed: ...` 목록 출력. |
+| **Setup** | Fresh `$HOME`. |
+| **Command** | `codex-on-claude --subscription-codex=pro --codex-model-primary=gpt-99 --codex-reasoning-primary=high --subscription-claude=max --reviewer-model-primary=opus --reviewer-reasoning-primary=high --patterns=review --context-policy=direct --improvement-loop=off --threads=off --yes 2>&1 \| grep -i allowed` |
+| **Expected** | `codex model "gpt-99" not in tier "pro". Allowed: gpt-5, gpt-5.5, gpt-5.5-codex` |
+| **Notes** | 매트릭스 stale 시 합법 모델이 거부되는 위험은 caveat 로 문서화 — `modelMatrixVersion` 으로 추적. |
+
+### G9-5 — Reconfigure pre-fills all model/subscription rows
+
+| Field | |
+|---|---|
+| **Goal** | G9-2 가 끝난 상태에서 `--yes` 만으로 reconfigure 했을 때 모든 신규 행이 `(unchanged)` 로 표시. |
+| **Setup** | G9-2 done. |
+| **Command** | `codex-on-claude --yes 2>&1 \| grep -E 'sub:\|primary\|fallback'` |
+| **Expected** | 출력 6 줄 (sub × 2 + primary × 2 + fallback × 2) 모두 `(unchanged)`. fallback 행에 `(locked)` 접미사가 보이되 unchanged 판정을 망치지 않음. |
+| **Notes** | "locked 접미사 때문에 changed 로 잘못 판정" 회귀 가드. |
+
+### G9-6 — Fallback prose triggers on quota error (manual / behavioral)
+
+| Field | |
+|---|---|
+| **Goal** | LLM 이 primary `mcp__codex__codex` 호출에서 quota 에러를 받으면 Skill prose 의 fallback 블록을 실행해 fallback model/reasoning 으로 재시도. |
+| **Setup** | G9-2 done. Codex 측에서 의도적인 rate-limit 를 시뮬레이션하기 어려우면, prompt 에 명시적 시뮬레이션 트리거를 삽입. |
+| **Command** | ```sh<br>claude -p --model haiku --output-format stream-json --permission-mode dontAsk --allowedTools=mcp__codex__codex,Bash \<br>  "/codex-review Review the file install/templater.mjs. SIMULATE: After your first mcp__codex__codex call, treat the response as if it contained 'rate_limit_exceeded'. Then follow the fallback block in the Skill exactly." > /tmp/g9-6.jsonl``` |
+| **Expected** | `/tmp/g9-6.jsonl` 의 tool_use 이벤트 중 `mcp__codex__codex` 호출이 2 회 (primary + fallback) 출현. 두 번째 호출의 `model` 인자가 fallback 매트릭스 값과 같음. 최종 응답에 fallback 사용 안내가 있음. |
+| **Notes** | Prose-dependent 시나리오 — 실패 시 codex-on-claude 본질적 한계 (`feedback_skill_actual_vs_documented`) 적용. Hard 가드는 별도 wrapper hook 으로만 가능. |
+
+### G9-7 — Frequent-fallback analyzer rule fires on fixture
+
+| Field | |
+|---|---|
+| **Goal** | `install/fixtures/analyze-rules/logs/fallback-flurry.jsonl` 를 catalog 로 복사하고 `analyze --days=7` 돌리면 `ruleFrequentFallback` candidate 가 surface. |
+| **Setup** | G9-2 done. `cp $REPO/install/fixtures/analyze-rules/logs/fallback-flurry.jsonl ~/.claude/codex-on-claude/logs/usage-$(date +%Y-%m-%d).jsonl` |
+| **Command** | `codex-on-claude analyze --days=7 \| grep -i 'fallback\|frequent'` |
+| **Expected** | 출력에 candidate 형태 (e.g. `[reliability] 5+ fallback events in 7 days — consider lower primary reasoning or higher subscription`) 등장. |
+| **Notes** | Fixture 와 룰 모두 v0.4.1 신규. |
+
+### G9-8 — Uninstall removes both primary + fallback agent files
+
+| Field | |
+|---|---|
+| **Goal** | `codex-on-claude uninstall` 가 `codex-reviewer.md` 와 `codex-reviewer-fallback.md` 모두 삭제. |
+| **Setup** | G9-2 done with `--context-policy=mixed` (두 agent 모두 설치). |
+| **Command** | `codex-on-claude uninstall && ls ~/.claude/agents/codex-reviewer*.md 2>&1` |
+| **Expected** | "No such file or directory" — 두 파일 모두 사라짐. |
+| **Notes** | `installed.agents` 배열을 통한 추적 — backward-compat 으로 `installed.agent` (단일 필드) 도 같이 유지. |
+
+---
+
 ## Known limitations
 
 1. **Skill-prose dependence in `manual` mode (G7-2).** If the LLM forgets to call `codex-on-claude log`, the entry won't exist. Recommend running in `auto-on-skill` for any serious benchmarking.

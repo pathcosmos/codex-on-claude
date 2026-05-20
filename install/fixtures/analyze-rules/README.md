@@ -39,6 +39,7 @@ the "14+ days inactive" condition stays true relative to any date past
 | `logs/sandbox-mismatch.jsonl` | `ruleSandboxMismatch` | ≥3 entries with `sandbox=workspace-write` AND `responseChars < 500` |
 | `logs/session-not-found.jsonl` | `ruleSessionNotFound` | ≥2 entries with `outcome` / `errorKind = session-not-found` |
 | `logs/timeouts.jsonl` | `ruleTimeouts` | ≥2 entries with `outcome=timeout` |
+| `logs/fallback-flurry.jsonl` | `ruleFrequentFallback` | ≥5 entries with `outcome=fallback` (any `errorKind`) in the window |
 | `threads/stale-active/*.json` | `ruleStaleActiveThreads` | ≥3 threads with `status=active` AND `lastUsedAt` older than 14 days |
 | `threads/incidents-cluster/*.json` | `ruleIncidentRepeat` | ANY single thread with `incidents.length ≥ 3` |
 | `threads/tag-cluster/*.json` | `ruleSimilarTagCluster` | ANY tag appearing in ≥5 threads (the `security` tag here) |

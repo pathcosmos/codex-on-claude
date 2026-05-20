@@ -98,8 +98,13 @@ codex-on-claude \
   --context-policy=mixed \
   --improvement-loop=manual \
   --threads=basic \
+  --subscription-claude=max --subscription-codex=pro \
+  --codex-model-primary=gpt-5.5 --codex-reasoning-primary=xhigh \
+  --reviewer-model-primary=opus --reviewer-reasoning-primary=xhigh \
   --yes
 ```
+
+The `--subscription-*` flags declare what you actually have access to. The `--*-model-primary` / `--*-reasoning-primary` flags pick the model + effort level you want to run by default. **Fallback is auto-locked** to each tier's base — if you exhaust quota on the primary, Skill prose retries once on the fallback (gpt-5/medium for Codex, sonnet/medium for the Claude reviewer agent at default tiers). Pass `--codex-model-fallback=...` etc. if you really need to override the lock; the installer warns and re-snaps to base.
 
 `--share-scope=...` is accepted but **deprecated since v0.3 and ignored** (a one-line notice prints). The plugin-bundle workflow was removed in 0.3.0; if you need team distribution, share this GitHub repo and have everyone run the installer.
 
@@ -127,9 +132,11 @@ codex-on-claude \
 
 ---
 
-## The four install questions
+## The install questions
 
 Each answer is also a CLI flag for non-interactive use. Reconfigure later with `codex-on-claude reconfigure` — your previous answers come back pre-selected.
+
+> v0.4.1 raises the count from 4 to 6 (subscription + primary model / reasoning per side). All new questions live below the original four; the originals still work the same way.
 
 ### 1. patterns (multi-select)
 
@@ -182,6 +189,41 @@ Persistent thread catalog at `~/.claude/codex-on-claude/threads/<threadId>.json`
 Flag: `--threads=off|basic|full`
 
 External transport: **none**. Bodies of prompts / responses are never stored — only short text you (or a Skill) explicitly write via `threads outcome | decision | note | incident`.
+
+### 5. subscription tiers (v0.4.1)
+
+You declare which Claude + Codex subscription tier you actually have. The installer uses this **only** to constrain the model + reasoning choices in questions 6 below — it never sends anything to Anthropic/OpenAI to verify.
+
+| Side | Tiers offered (highest → lowest) | Default |
+|---|---|---|
+| Claude | `enterprise / team / max / pro / free` | `max` |
+| Codex  | `team / pro / plus / free`             | `pro` |
+
+Flags: `--subscription-claude=...` and `--subscription-codex=...`
+
+A declared tier that doesn't match reality is fine — but expect the **frequent-fallback analyzer rule** to fire as your primary tier exhausts quota repeatedly. Reconfigure to a lower tier (and lower primary reasoning) when that happens.
+
+### 6. model / reasoning — primary + fallback (v0.4.1)
+
+For each side (Codex calls, Claude reviewer subagent) you pick:
+- **Primary**: the model + reasoning effort you want by default
+- **Fallback**: **locked** to the subscription tier's base — used automatically when Skill prose detects a `rate_limit_exceeded` / `quota` / `429` / `usage_limit_reached` error
+
+| Side | Primary flags |
+|---|---|
+| Codex | `--codex-model-primary=gpt-5.5 --codex-reasoning-primary=xhigh` |
+| Reviewer (Claude subagent) | `--reviewer-model-primary=opus --reviewer-reasoning-primary=xhigh` |
+
+Reasoning vocabulary (shared by Claude `--effort` and Codex `model_reasoning_effort`): `low / medium / high / xhigh / max`.
+
+How fallback fires:
+- **Codex side**: each `mcp__codex__codex` call's Skill prose ends with a "if you see rate_limit/quota, retry **once** with the locked fallback" block.
+- **Reviewer subagent route**: the primary `codex-reviewer` agent emits the sentinel line `CODEX_QUOTA_FALLBACK_NEEDED`; `/codex-review` Skill prose re-launches via `codex-reviewer-fallback`.
+- **`claude -p` direct callers** (cron / bench): pass `--fallback-model <id>` — Claude's CLI handles it natively without prose. Note: `--effort` only applies to primary; Claude doesn't have a `--fallback-effort` flag.
+
+You can pass `--codex-model-fallback=...` etc. but values that don't match the matrix base are ignored with a warning — the lock is intentional. To "unlock" the fallback, raise your subscription tier (which raises the base).
+
+Fallback events accrue in the usage log (`outcome=fallback`, `errorKind=quota|rate_limit|...`). `codex-on-claude analyze` surfaces a `ruleFrequentFallback` candidate at ≥5 events in the window — your hint to upgrade or de-tune the primary.
 
 ---
 

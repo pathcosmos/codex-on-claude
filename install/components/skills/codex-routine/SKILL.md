@@ -34,9 +34,13 @@ mcp__codex__codex(
   prompt="""<standardized prompt with the collected fields filled in>""",
   cwd=<project path>,
   sandbox="read-only",
-  approval-policy="never"
+  approval-policy="never",
+  model="{{codexPrimaryModel}}",
+  config={ "model_reasoning_effort": "{{codexPrimaryReasoning}}" }
 )
 ```
+
+On `rate_limit_exceeded` / `quota` / `429` / `usage_limit_reached`, retry once with `model="{{codexFallbackModel}}"`, `config={ "model_reasoning_effort": "{{codexFallbackReasoning}}" }`, then log with `codex-on-claude log --outcome=fallback --error-kind=quota`.
 
 ### B. Schedule via Claude Code loop / cron
 
@@ -50,8 +54,12 @@ Or via external cron with a non-interactive Codex call:
 
 ```sh
 codex exec --skip-git-repo-check -C "$PWD" -s read-only --json \
+  -c 'model="{{codexPrimaryModel}}"' \
+  -c 'model_reasoning_effort="{{codexPrimaryReasoning}}"' \
   "<standardized prompt>" >> ~/.codex-routines/<name>.log
 ```
+
+The cron-call form does NOT have automatic fallback. If quota matters in a long-running cron, wrap the call in a shell guard that re-runs with `-c 'model="{{codexFallbackModel}}"' -c 'model_reasoning_effort="{{codexFallbackReasoning}}"'` on non-zero exit.
 
 ## Storage
 

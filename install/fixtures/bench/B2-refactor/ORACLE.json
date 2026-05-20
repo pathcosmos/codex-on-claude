@@ -1,0 +1,9 @@
+{
+  "scenario": "B2-refactor",
+  "criteria": [
+    { "name": "all_renames_applied", "type": "tests_pass" },
+    { "name": "changes_in_four_files", "type": "changed_files_min", "args": { "min": 4 } },
+    { "name": "no_other_files_touched", "type": "changed_files_subset_of",
+      "args": { "allowlist": ["a.js", "b.js", "c.js", "userlib.js"] } }
+  ]
+}

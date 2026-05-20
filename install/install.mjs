@@ -20,6 +20,7 @@ import { checkbox, select, confirm } from "@inquirer/prompts";
 import { runAnalyze, recordDecision, appendLog } from "./analyze.mjs";
 import * as threads from "./threads.mjs";
 import * as hooks from "./hooks.mjs";
+import { renderTree, renderFile } from "./templater.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -199,20 +200,34 @@ function formatChange(prev, next, isMulti) {
   return `changed (${fmtList(prev)}) → (${fmtList(next)})`;
 }
 
+function fmtModelSlot(slot) {
+  if (!slot || !slot.id) return "(unset)";
+  return `${slot.id} · ${slot.reasoning || "?"}`;
+}
+
 function renderReviewTable(prev, draft, hasPrev) {
+  // [label, draftValue, prevValue, isMulti, suffix?] — `suffix` is rendered
+  // alongside but excluded from the same/changed comparison.
   const rows = [
     ["patterns", draft.patterns, prev?.patterns, true],
     ["contextPolicy", draft.contextPolicy, prev?.contextPolicy, false],
     ["improvementLoop", draft.improvementLoop, prev?.improvementLoop, false],
     ["threads", draft.threads, prev?.threads, false],
+    ["sub: claude", draft.subscription?.claude, prev?.subscription?.claude, false],
+    ["sub: codex", draft.subscription?.codex, prev?.subscription?.codex, false],
+    ["codex primary", fmtModelSlot(draft.model?.codex?.primary), fmtModelSlot(prev?.model?.codex?.primary), false],
+    ["codex fallback", fmtModelSlot(draft.model?.codex?.fallback), fmtModelSlot(prev?.model?.codex?.fallback), false, "(locked)"],
+    ["reviewer primary", fmtModelSlot(draft.model?.reviewer?.primary), fmtModelSlot(prev?.model?.reviewer?.primary), false],
+    ["reviewer fallback", fmtModelSlot(draft.model?.reviewer?.fallback), fmtModelSlot(prev?.model?.reviewer?.fallback), false, "(locked)"],
   ];
   const lines = [];
-  for (const [key, next, prv, isMulti] of rows) {
+  for (const [key, next, prv, isMulti, suffix] of rows) {
     const same = isMulti ? arraysEqualSet(prv || [], next || []) : (prv == next);
     const tail = hasPrev
       ? (same ? `(unchanged)` : `(was: ${fmtList(prv)})  ${c.yellow}← changed${c.reset}`)
       : `(new)`;
-    lines.push(`  ${key.padEnd(16)}: ${fmtList(next).padEnd(36)} ${c.dim}${tail}${c.reset}`);
+    const valueCell = suffix ? `${fmtList(next)} ${suffix}` : fmtList(next);
+    lines.push(`  ${key.padEnd(18)}: ${valueCell.padEnd(36)} ${c.dim}${tail}${c.reset}`);
   }
   return lines.join("\n");
 }
@@ -445,11 +460,84 @@ function normalizeImprovementLoop(manifest, value) {
   return aliases[value] || value;
 }
 
+// ===== Model matrix + subscription helpers (v0.4.1) =====
+
+function tierEntry(manifest, side, tier) {
+  return manifest.modelMatrix?.[side]?.[tier] || null;
+}
+
+function defaultSubscription(side) {
+  // Reasonable defaults for first-run users — recommendation matches manifest labels.
+  return side === "claude" ? "max" : "pro";
+}
+
+function allowedSubscriptions(manifest, side) {
+  return Object.keys(manifest.modelMatrix?.[side] || {});
+}
+
+function defaultPrimaryFor(manifest, side, tier) {
+  const t = tierEntry(manifest, side, tier);
+  if (!t) return null;
+  // Default primary = "best non-base option in the tier", falling back to base.
+  const firstNonBase = t.models.find((m) => m !== t.base.id) || t.base.id;
+  const firstReasoning = t.reasoning[0] || t.base.reasoning;
+  return { id: firstNonBase, reasoning: firstReasoning };
+}
+
+function fallbackFor(manifest, side, tier) {
+  const t = tierEntry(manifest, side, tier);
+  if (!t) return { id: "?", reasoning: "?" };
+  return { id: t.base.id, reasoning: t.base.reasoning };
+}
+
+function validateModelChoice(manifest, side, tier, choice) {
+  const t = tierEntry(manifest, side, tier);
+  if (!t) return { ok: false, reason: `unknown ${side} subscription "${tier}"` };
+  if (!choice?.id) return { ok: false, reason: `${side} model id missing` };
+  if (!t.models.includes(choice.id)) {
+    return { ok: false, reason: `${side} model "${choice.id}" not in tier "${tier}". Allowed: ${t.models.join(", ")}` };
+  }
+  if (!choice.reasoning) return { ok: false, reason: `${side} reasoning level missing` };
+  if (!t.reasoning.includes(choice.reasoning)) {
+    return { ok: false, reason: `${side} reasoning "${choice.reasoning}" not in tier "${tier}". Allowed: ${t.reasoning.join(", ")}` };
+  }
+  return { ok: true };
+}
+
+function clampToTier(manifest, side, tier, choice) {
+  // Best-effort: if a prior install's choice is no longer valid (e.g. subscription downgrade),
+  // snap it back to the tier's defaults rather than silently writing invalid state.
+  const v = validateModelChoice(manifest, side, tier, choice);
+  if (v.ok) return choice;
+  return defaultPrimaryFor(manifest, side, tier);
+}
+
+function buildModelVars(state) {
+  // Returns the object passed to the templater. Includes both the structured
+  // `model.<side>.<slot>.<field>` paths AND short aliases so Skill prose can
+  // reference them ergonomically.
+  const m = state.choices?.model || {};
+  return {
+    subscription: state.choices?.subscription || {},
+    model: m,
+    // shortcut aliases (handy inside Skill prose)
+    codexPrimaryModel: m.codex?.primary?.id,
+    codexPrimaryReasoning: m.codex?.primary?.reasoning,
+    codexFallbackModel: m.codex?.fallback?.id,
+    codexFallbackReasoning: m.codex?.fallback?.reasoning,
+    reviewerPrimaryModel: m.reviewer?.primary?.id,
+    reviewerPrimaryReasoning: m.reviewer?.primary?.reasoning,
+    reviewerFallbackModel: m.reviewer?.fallback?.id,
+    reviewerFallbackReasoning: m.reviewer?.fallback?.reasoning,
+  };
+}
+
 async function applyInstallation(manifest, choices, previousState) {
   const desiredSkills = new Set(selectedSkills(manifest, choices.patterns, choices.improvementLoop, choices.threads));
   const desiredAgent = shouldInstallAgent(manifest, choices.contextPolicy);
   const desiredLogging = loggingEnabled(manifest, choices.improvementLoop);
   const desiredThreads = threadsEnabled(manifest, choices.threads);
+  const templateVars = buildModelVars({ choices });
 
   if (desiredLogging) {
     await fs.mkdir(path.join(STATE_DIR, "logs"), { recursive: true });
@@ -477,9 +565,9 @@ async function applyInstallation(manifest, choices, previousState) {
       err(`Source missing: ${src}`);
       continue;
     }
-    await copyTree(src, dst);
+    const { rendered } = await renderTree(src, dst, templateVars);
     installed.skills.push(skillKey);
-    ok(`Skill installed/updated: ${skillKey} → ${dst}`);
+    ok(`Skill installed/updated: ${skillKey} → ${dst}${rendered ? ` (templated ${rendered} file${rendered === 1 ? "" : "s"})` : ""}`);
   }
 
   // Remove skills that were previously installed but no longer desired
@@ -495,27 +583,32 @@ async function applyInstallation(manifest, choices, previousState) {
     }
   }
 
-  // Agent install / removal
-  const agentDef = manifest.agent;
-  const agentTarget = path.join(CLAUDE_DIR, agentDef.target);
-  if (desiredAgent) {
-    const src = path.join(__dirname, agentDef.source);
-    if (!(await pathExists(src))) {
-      err(`Agent source missing: ${src}`);
-    } else {
-      await fs.mkdir(path.dirname(agentTarget), { recursive: true });
-      await fs.copyFile(src, agentTarget);
-      installed.agent = agentDef.name;
-      ok(`Agent installed/updated: ${agentDef.name} → ${agentTarget}`);
-    }
-  } else {
-    if (previousState?.installed?.agent) {
-      if (await removeIfExists(agentTarget)) {
-        installed.removed.push(`agents/${agentDef.name}`);
-        info(`Removed previous Agent: ${agentDef.name}`);
+  // Agent install / removal — render both primary and fallback variants when desired.
+  const agentDefs = [
+    { def: manifest.agent, slot: "primary" },
+    ...(manifest.agentFallback ? [{ def: manifest.agentFallback, slot: "fallback" }] : []),
+  ];
+  installed.agents = [];
+  for (const { def, slot } of agentDefs) {
+    const target = path.join(CLAUDE_DIR, def.target);
+    if (desiredAgent) {
+      const src = path.join(__dirname, def.source);
+      if (!(await pathExists(src))) {
+        err(`Agent source missing: ${src}`);
+        continue;
+      }
+      await renderFile(src, target, templateVars);
+      installed.agents.push(def.name);
+      ok(`Agent (${slot}) installed/updated: ${def.name} → ${target}`);
+    } else if (previousState?.installed?.agents?.includes(def.name) || previousState?.installed?.agent === def.name) {
+      if (await removeIfExists(target)) {
+        installed.removed.push(`agents/${def.name}`);
+        info(`Removed previous Agent: ${def.name}`);
       }
     }
   }
+  // Backward-compat single-agent field (older state schema readers depend on it).
+  installed.agent = installed.agents[0] || null;
 
   // Plugin bundle: deprecated in 0.3.0. Existing 0.2.x bundles are left in place — emit one-time hint.
   if (previousState?.installed?.pluginBundle || previousState?.choices?.shareScope === "team") {
@@ -562,8 +655,20 @@ async function cmdStatus() {
   log(`  contextPolicy: ${state.choices.contextPolicy}`);
   log(`  improvementLoop: ${state.choices.improvementLoop || "(unset)"}`);
   log(`  threads: ${state.choices.threads || "(unset)"}`);
+  if (state.choices.subscription) {
+    log(`  subscription: claude=${state.choices.subscription.claude || "?"}  codex=${state.choices.subscription.codex || "?"}`);
+  }
+  if (state.choices.model) {
+    const cp = state.choices.model.codex?.primary;
+    const cf = state.choices.model.codex?.fallback;
+    const rp = state.choices.model.reviewer?.primary;
+    const rf = state.choices.model.reviewer?.fallback;
+    if (cp) log(`  codex   : primary ${cp.id}/${cp.reasoning}  ${c.dim}fallback ${cf?.id}/${cf?.reasoning}${c.reset}`);
+    if (rp) log(`  reviewer: primary ${rp.id}/${rp.reasoning}  ${c.dim}fallback ${rf?.id}/${rf?.reasoning}${c.reset}`);
+  }
   log(`  Skills installed: ${(state.installed?.skills || []).join(", ") || "(none)"}`);
-  log(`  Agent installed: ${state.installed?.agent || "(none)"}`);
+  const agents = state.installed?.agents || (state.installed?.agent ? [state.installed.agent] : []);
+  log(`  Agent(s) installed: ${agents.join(", ") || "(none)"}`);
   try {
     const hookStatus = await hooks.status();
     log(`  PostToolUse hooks: ${hookStatus.present ? `${hookStatus.present} (${hookStatus.matchers.join(", ")})` : "(none)"}`);
@@ -968,11 +1073,26 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   }
 
   // Defaults — normalize aliased keys from previous-state configs (e.g. on-demand → manual)
+  const priorSubClaude = previousState?.choices?.subscription?.claude || defaultSubscription("claude");
+  const priorSubCodex = previousState?.choices?.subscription?.codex || defaultSubscription("codex");
   const defaults = {
     patterns: previousState?.choices?.patterns || [],
     contextPolicy: previousState?.choices?.contextPolicy,
     improvementLoop: normalizeImprovementLoop(manifest, previousState?.choices?.improvementLoop),
     threads: previousState?.choices?.threads,
+    subscription: { claude: priorSubClaude, codex: priorSubCodex },
+    model: {
+      codex: {
+        primary: clampToTier(manifest, "codex", priorSubCodex,
+          previousState?.choices?.model?.codex?.primary || defaultPrimaryFor(manifest, "codex", priorSubCodex)),
+        fallback: fallbackFor(manifest, "codex", priorSubCodex),
+      },
+      reviewer: {
+        primary: clampToTier(manifest, "claude", priorSubClaude,
+          previousState?.choices?.model?.reviewer?.primary || defaultPrimaryFor(manifest, "claude", priorSubClaude)),
+        fallback: fallbackFor(manifest, "claude", priorSubClaude),
+      },
+    },
   };
   if (previousState?.choices?.improvementLoop && previousState.choices.improvementLoop !== defaults.improvementLoop) {
     info(`improvementLoop alias migrated: "${previousState.choices.improvementLoop}" → "${defaults.improvementLoop}"`);
@@ -983,6 +1103,17 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   const flagCtx = args.flags["context-policy"];
   const flagLoop = args.flags["improvement-loop"];
   const flagThreads = args.flags["threads"];
+  const flagSubClaude = typeof args.flags["subscription-claude"] === "string" ? args.flags["subscription-claude"] : null;
+  const flagSubCodex = typeof args.flags["subscription-codex"] === "string" ? args.flags["subscription-codex"] : null;
+  const flagCodexModelP = typeof args.flags["codex-model-primary"] === "string" ? args.flags["codex-model-primary"] : null;
+  const flagCodexReasoningP = typeof args.flags["codex-reasoning-primary"] === "string" ? args.flags["codex-reasoning-primary"] : null;
+  const flagReviewerModelP = typeof args.flags["reviewer-model-primary"] === "string" ? args.flags["reviewer-model-primary"] : null;
+  const flagReviewerReasoningP = typeof args.flags["reviewer-reasoning-primary"] === "string" ? args.flags["reviewer-reasoning-primary"] : null;
+  // Fallback flags are accepted (matrix-locked) — if user passes them and the value doesn't match the matrix base, we warn.
+  const flagCodexModelF = typeof args.flags["codex-model-fallback"] === "string" ? args.flags["codex-model-fallback"] : null;
+  const flagCodexReasoningF = typeof args.flags["codex-reasoning-fallback"] === "string" ? args.flags["codex-reasoning-fallback"] : null;
+  const flagReviewerModelF = typeof args.flags["reviewer-model-fallback"] === "string" ? args.flags["reviewer-model-fallback"] : null;
+  const flagReviewerReasoningF = typeof args.flags["reviewer-reasoning-fallback"] === "string" ? args.flags["reviewer-reasoning-fallback"] : null;
   const autoYes = args.flags["yes"] === true || args.flags["y"] === true;
   if (args.flags["share-scope"] !== undefined) {
     warn(`--share-scope=${args.flags["share-scope"]} is deprecated and ignored since v0.3.`);
@@ -1015,6 +1146,11 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
     contextPolicy: defaults.contextPolicy || "mixed",
     improvementLoop: defaults.improvementLoop || "manual",
     threads: defaults.threads || "basic",
+    subscription: { ...defaults.subscription },
+    model: {
+      codex:    { primary: { ...defaults.model.codex.primary },    fallback: { ...defaults.model.codex.fallback } },
+      reviewer: { primary: { ...defaults.model.reviewer.primary }, fallback: { ...defaults.model.reviewer.fallback } },
+    },
   };
 
   // Apply CLI flag overrides up front — they short-circuit prompts entirely.
@@ -1025,6 +1161,45 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
     choices.improvementLoop = normalizeImprovementLoop(manifest, flagLoop);
     if (flagLoop !== choices.improvementLoop) info(`improvementLoop "${flagLoop}" → "${choices.improvementLoop}" (alias)`);
   }
+  // Subscription flags
+  if (flagSubClaude) {
+    if (!allowedSubscriptions(manifest, "claude").includes(flagSubClaude)) {
+      err(`--subscription-claude=${flagSubClaude} not in allowed: ${allowedSubscriptions(manifest, "claude").join(", ")}`);
+      process.exit(2);
+    }
+    choices.subscription.claude = flagSubClaude;
+  }
+  if (flagSubCodex) {
+    if (!allowedSubscriptions(manifest, "codex").includes(flagSubCodex)) {
+      err(`--subscription-codex=${flagSubCodex} not in allowed: ${allowedSubscriptions(manifest, "codex").join(", ")}`);
+      process.exit(2);
+    }
+    choices.subscription.codex = flagSubCodex;
+  }
+  // Primary model/reasoning flags (validated against the (possibly just-updated) subscription).
+  if (flagCodexModelP) choices.model.codex.primary.id = flagCodexModelP;
+  if (flagCodexReasoningP) choices.model.codex.primary.reasoning = flagCodexReasoningP;
+  if (flagReviewerModelP) choices.model.reviewer.primary.id = flagReviewerModelP;
+  if (flagReviewerReasoningP) choices.model.reviewer.primary.reasoning = flagReviewerReasoningP;
+  // Validate primary now (after both subscription and primary may have come from flags).
+  {
+    const vC = validateModelChoice(manifest, "codex", choices.subscription.codex, choices.model.codex.primary);
+    if (!vC.ok) { err(vC.reason); info(`Hint: tier "${choices.subscription.codex}" base = ${JSON.stringify(fallbackFor(manifest, "codex", choices.subscription.codex))}`); process.exit(2); }
+    const vR = validateModelChoice(manifest, "claude", choices.subscription.claude, choices.model.reviewer.primary);
+    if (!vR.ok) { err(vR.reason); info(`Hint: tier "${choices.subscription.claude}" base = ${JSON.stringify(fallbackFor(manifest, "claude", choices.subscription.claude))}`); process.exit(2); }
+  }
+  // Fallback flags are locked to matrix base; warn-and-overwrite if user disagrees.
+  const enforceFallback = () => {
+    const expectC = fallbackFor(manifest, "codex", choices.subscription.codex);
+    const expectR = fallbackFor(manifest, "claude", choices.subscription.claude);
+    if (flagCodexModelF && flagCodexModelF !== expectC.id) warn(`--codex-model-fallback=${flagCodexModelF} ignored — locked to base "${expectC.id}" for tier "${choices.subscription.codex}".`);
+    if (flagCodexReasoningF && flagCodexReasoningF !== expectC.reasoning) warn(`--codex-reasoning-fallback=${flagCodexReasoningF} ignored — locked to base "${expectC.reasoning}".`);
+    if (flagReviewerModelF && flagReviewerModelF !== expectR.id) warn(`--reviewer-model-fallback=${flagReviewerModelF} ignored — locked to base "${expectR.id}" for tier "${choices.subscription.claude}".`);
+    if (flagReviewerReasoningF && flagReviewerReasoningF !== expectR.reasoning) warn(`--reviewer-reasoning-fallback=${flagReviewerReasoningF} ignored — locked to base "${expectR.reasoning}".`);
+    choices.model.codex.fallback = expectC;
+    choices.model.reviewer.fallback = expectR;
+  };
+  enforceFallback();
 
   function logChange(key, prev, next, isMulti) {
     if (autoYes) return;
@@ -1074,6 +1249,66 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
       logChange("threads", before, choices.threads, false);
     }
 
+    // ------- Subscription + model + reasoning (v0.4.1) -------
+    if (!autoYes && !flagSubClaude) {
+      const before = choices.subscription.claude;
+      choices.subscription.claude = await askSingle(
+        manifest.questions.subscriptionClaude.label,
+        manifest.questions.subscriptionClaude.choices,
+        choices.subscription.claude
+      );
+      // If the subscription changed, snap primary back to a valid value for the new tier.
+      if (before !== choices.subscription.claude) {
+        choices.model.reviewer.primary = clampToTier(manifest, "claude", choices.subscription.claude, choices.model.reviewer.primary);
+      }
+      logChange("sub:claude", before, choices.subscription.claude, false);
+    }
+    if (!autoYes && !flagSubCodex) {
+      const before = choices.subscription.codex;
+      choices.subscription.codex = await askSingle(
+        manifest.questions.subscriptionCodex.label,
+        manifest.questions.subscriptionCodex.choices,
+        choices.subscription.codex
+      );
+      if (before !== choices.subscription.codex) {
+        choices.model.codex.primary = clampToTier(manifest, "codex", choices.subscription.codex, choices.model.codex.primary);
+      }
+      logChange("sub:codex", before, choices.subscription.codex, false);
+    }
+
+    // Helper for dynamic-options ask
+    const askModelSlot = async (side, label) => {
+      const tier = side === "codex" ? choices.subscription.codex : choices.subscription.claude;
+      const t = tierEntry(manifest, side, tier);
+      if (!t) return; // already validated
+      const slot = side === "codex" ? choices.model.codex.primary : choices.model.reviewer.primary;
+      const beforeId = slot.id;
+      const beforeR = slot.reasoning;
+      const flagModelP = side === "codex" ? flagCodexModelP : flagReviewerModelP;
+      const flagReasoningP = side === "codex" ? flagCodexReasoningP : flagReviewerReasoningP;
+      if (!flagModelP) {
+        slot.id = await askSingle(
+          `${label} — primary model`,
+          t.models.map((m) => ({ key: m, label: m === t.base.id ? `${m} (base)` : m })),
+          slot.id
+        );
+      }
+      if (!flagReasoningP) {
+        slot.reasoning = await askSingle(
+          `${label} — primary reasoning effort`,
+          t.reasoning.map((r) => ({ key: r, label: r === t.base.reasoning ? `${r} (base)` : r })),
+          slot.reasoning
+        );
+      }
+      logChange(`${side}-primary`, `${beforeId} · ${beforeR}`, `${slot.id} · ${slot.reasoning}`, false);
+    };
+    if (!autoYes) {
+      await askModelSlot("codex", "Codex");
+      await askModelSlot("claude", "Claude reviewer");
+    }
+    // Re-enforce fallback after any subscription changes during the prompt loop.
+    enforceFallback();
+
     // Review screen — shown for both fresh install and reconfigure
     log(`\n${c.bold}3. Review${c.reset}`);
     log(renderReviewTable(previousState?.choices, choices, hasPrev));
@@ -1095,6 +1330,9 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   log(`  contextPolicy: ${choices.contextPolicy}`);
   log(`  improvementLoop: ${choices.improvementLoop}`);
   log(`  threads: ${choices.threads}`);
+  log(`  subscription: claude=${choices.subscription.claude}  codex=${choices.subscription.codex}`);
+  log(`  codex   : primary ${fmtModelSlot(choices.model.codex.primary)}   ${c.dim}fallback ${fmtModelSlot(choices.model.codex.fallback)} (locked)${c.reset}`);
+  log(`  reviewer: primary ${fmtModelSlot(choices.model.reviewer.primary)}   ${c.dim}fallback ${fmtModelSlot(choices.model.reviewer.fallback)} (locked)${c.reset}`);
 
   const installed = await applyInstallation(manifest, choices, previousState);
 

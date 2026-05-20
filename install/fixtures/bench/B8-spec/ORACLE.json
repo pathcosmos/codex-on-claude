@@ -1,0 +1,9 @@
+{
+  "scenario": "B8-spec",
+  "notes": "Stub SPEC.md has 6 endpoints; expand to 40 for the real benchmark. Then set min=38 in this oracle.",
+  "criteria": [
+    { "name": "endpoints_min", "type": "final_json_array_min", "args": { "field": "endpoints", "min": 6 } },
+    { "name": "endpoints_max", "type": "final_json_array_max", "args": { "field": "endpoints", "max": 7 } },
+    { "name": "mentions_auth_none", "type": "contains_text", "args": { "needle": "none" } }
+  ]
+}

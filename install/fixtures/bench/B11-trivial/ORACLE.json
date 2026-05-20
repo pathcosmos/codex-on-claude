@@ -1,0 +1,14 @@
+{
+  "scenario": "B11-trivial",
+  "criteria": [
+    { "name": "typo_fixed", "type": "tests_pass" },
+    { "name": "only_readme_modified", "type": "changed_files_subset_of", "args": { "allowlist": ["README.md"] } },
+    { "name": "single_file_modified", "type": "changed_files_max", "args": { "max": 1 } },
+    { "name": "beta_did_not_call_codex", "type": "arm_specific",
+      "args": { "arm": "beta", "inner_type": "tool_call_count_max",
+                "inner_args": { "name": "mcp__codex__codex", "max": 0 } } },
+    { "name": "beta_did_not_call_codex_reply", "type": "arm_specific",
+      "args": { "arm": "beta", "inner_type": "tool_call_count_max",
+                "inner_args": { "name": "mcp__codex__codex-reply", "max": 0 } } }
+  ]
+}

@@ -67,3 +67,20 @@ If resume succeeded with the same `threadId`, subsequent `mcp__codex__codex-repl
 - Do not embed secrets (tokens, passwords) in the resume prompt.
 - The `threadId` itself is a public-safe identifier and may be shown in the main context.
 - If resume keeps failing for the same `threadId`, start a fresh `mcp__codex__codex` call instead of looping.
+
+## On Codex quota / rate-limit error during resume
+
+`codex exec resume` itself can fail with `rate_limit_exceeded` / `quota` / `429`. The original thread's model is baked into the transcript and cannot be downgraded mid-resume. If quota blocks resume, start a fresh thread with the fallback tier:
+
+```
+mcp__codex__codex(
+  prompt="<context summary built from prior turns>",
+  cwd=<project path>,
+  sandbox="<same as prior>",
+  approval-policy="<same as prior>",
+  model="{{codexFallbackModel}}",
+  config={ "model_reasoning_effort": "{{codexFallbackReasoning}}" }
+)
+```
+
+Log the bifurcation: `codex-on-claude log --outcome=fallback --error-kind=quota --notes="resume→fresh thread on fallback tier"`.

@@ -2,7 +2,7 @@
 name: codex-reviewer
 description: Use this agent when you want an isolated, large-output Codex review that should NOT pollute the main Claude context. Ideal for reviewing big diffs, multiple files at once, or any Codex call whose response is expected to exceed several KB. The agent calls Codex via mcp__codex__codex in read-only mode and returns only a concise summary plus the threadId.
 tools: mcp__codex__codex, mcp__codex__codex-reply, Read, Grep, Glob, Bash
-model: sonnet
+model: {{reviewerPrimaryModel}}
 ---
 
 # codex-reviewer
@@ -31,11 +31,15 @@ mcp__codex__codex(
   prompt="<review instructions>",
   cwd=<absolute project path>,
   sandbox="read-only",
-  approval-policy="never"
+  approval-policy="never",
+  model="{{codexPrimaryModel}}",
+  config={ "model_reasoning_effort": "{{codexPrimaryReasoning}}" }
 )
 ```
 
 Never call with `workspace-write` or `danger-full-access`. If edits are required, point the main session at `/codex-fix`.
+
+If your session's reasoning effort can be raised independently (e.g. via `--effort {{reviewerPrimaryReasoning}}` for `claude -p` callers), prefer that — Claude Code subagent frontmatter does NOT pin an effort level, so this is best-effort. The model pin above (`{{reviewerPrimaryModel}}`) IS enforced.
 
 ## Output format (returned to main session)
 
@@ -58,3 +62,4 @@ If the output would exceed ~1000 chars, drop suggestions first and keep critical
 ## Failure handling
 - If the Codex call fails, report a one-line error and exit.
 - For `Session not found`-style errors, point the main session at `/codex-resume`.
+- For `rate_limit_exceeded` / `quota` / `429` / `usage_limit_reached`, output exactly the sentinel `CODEX_QUOTA_FALLBACK_NEEDED` on its own line, then stop. The main session's `/codex-review` Skill prose watches for this sentinel and re-launches via the `codex-reviewer-fallback` agent.

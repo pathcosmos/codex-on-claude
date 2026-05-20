@@ -18,6 +18,7 @@ import readline from "node:readline";
 import { checkbox, select, confirm } from "@inquirer/prompts";
 import { runAnalyze, recordDecision, appendLog } from "./analyze.mjs";
 import * as threads from "./threads.mjs";
+import * as hooks from "./hooks.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -353,6 +354,17 @@ function loggingEnabled(manifest, improvementLoop) {
   return ch ? !!ch.enableLogging : false;
 }
 
+function hooksEnabled(manifest, improvementLoop) {
+  const ch = manifest.questions.improvementLoop.choices.find((c) => c.key === improvementLoop);
+  return ch ? !!ch.registerHooks : false;
+}
+
+function normalizeImprovementLoop(manifest, value) {
+  if (!value) return value;
+  const aliases = manifest.questions.improvementLoop?.aliases || {};
+  return aliases[value] || value;
+}
+
 async function applyInstallation(manifest, choices, previousState) {
   const desiredSkills = new Set(selectedSkills(manifest, choices.patterns, choices.improvementLoop, choices.threads));
   const desiredAgent = shouldInstallAgent(manifest, choices.contextPolicy);
@@ -431,6 +443,30 @@ async function applyInstallation(manifest, choices, previousState) {
     info(`  수동 제거하려면: rm -rf "$HOME/.claude/plugins/marketplaces/codex-bridge"`);
   }
 
+  // PostToolUse hooks for auto-on-skill / periodic
+  const desiredHooks = hooksEnabled(manifest, choices.improvementLoop);
+  const cocBin = which("codex-on-claude");
+  const hookCommand = cocBin
+    ? `${cocBin} log --from-stdin`
+    : `node ${path.resolve(__dirname, "install.mjs")} log --from-stdin`;
+  if (desiredHooks) {
+    try {
+      const r = await hooks.install({ command: hookCommand });
+      ok(`PostToolUse hooks 등록 (${r.addedGroups}개): ${r.settingsFile}`);
+      installed.hooks = true;
+    } catch (e) {
+      err(`PostToolUse hook 등록 실패: ${e.message}`);
+    }
+  } else if (previousState?.installed?.hooks) {
+    try {
+      const r = await hooks.remove();
+      info(`PostToolUse hooks 제거 (${r.removedGroups}개)`);
+      installed.hooks = false;
+    } catch (e) {
+      err(`PostToolUse hook 제거 실패: ${e.message}`);
+    }
+  }
+
   return installed;
 }
 
@@ -448,6 +484,10 @@ async function cmdStatus() {
   log(`  threads: ${state.choices.threads || "(unset)"}`);
   log(`  설치된 Skills: ${(state.installed?.skills || []).join(", ") || "(none)"}`);
   log(`  설치된 Agent: ${state.installed?.agent || "(none)"}`);
+  try {
+    const hookStatus = await hooks.status();
+    log(`  PostToolUse hooks: ${hookStatus.present ? `${hookStatus.present} (${hookStatus.matchers.join(", ")})` : "(none)"}`);
+  } catch { /* settings file missing */ }
   if (state.choices.shareScope || state.installed?.pluginBundle) {
     log(`  ${c.dim}(legacy) shareScope: ${state.choices.shareScope || "-"}, pluginBundle: ${state.installed?.pluginBundle || "-"}  — v0.3에서 관리 종료${c.reset}`);
   }
@@ -666,23 +706,98 @@ async function cmdThreads(args) {
   }
 }
 
-async function cmdLog(args) {
-  const entry = {
-    skill: args.flags["skill"] || null,
-    tool: args.flags["tool"] || "mcp__codex__codex",
-    sandbox: args.flags["sandbox"] || null,
-    approvalPolicy: args.flags["approval-policy"] || null,
-    threadId: args.flags["thread-id"] || null,
-    promptChars: parseInt(args.flags["prompt-chars"], 10) || 0,
-    responseChars: parseInt(args.flags["response-chars"], 10) || 0,
-    elapsedMs: parseInt(args.flags["elapsed-ms"], 10) || 0,
-    viaAgent: args.flags["via-agent"] === true || args.flags["via-agent"] === "true",
-    outcome: args.flags["outcome"] || "ok",
-    errorKind: args.flags["error-kind"] || null,
-    notes: args.flags["notes"] || null,
+function readAllStdin() {
+  return new Promise((resolve) => {
+    if (process.stdin.isTTY) { resolve(""); return; }
+    let buf = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => { buf += chunk; });
+    process.stdin.on("end", () => resolve(buf));
+    process.stdin.on("error", () => resolve(buf));
+  });
+}
+
+function extractFromHookPayload(payload) {
+  // Claude Code PostToolUse hook stdin schema (best-effort):
+  //   { session_id, tool_name, tool_input, tool_response, ... }
+  const toolName = payload.tool_name || payload.toolName || "mcp__codex__codex";
+  const input = payload.tool_input || payload.toolInput || {};
+  const response = payload.tool_response || payload.toolResponse || {};
+  const promptText = typeof input.prompt === "string" ? input.prompt : "";
+
+  // tool_response content can be a string or a structured array
+  let responseText = "";
+  if (typeof response === "string") responseText = response;
+  else if (typeof response.content === "string") responseText = response.content;
+  else if (Array.isArray(response.content)) {
+    responseText = response.content.map((c) => (typeof c === "string" ? c : c?.text || "")).join("");
+  } else if (response.threadId && response.content) {
+    responseText = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
+  }
+
+  // threadId discovery
+  let threadId = response.threadId || response.thread_id || null;
+  if (!threadId) {
+    const blob = JSON.stringify(response);
+    const m = blob.match(/"thread[_-]?[Ii]d"\s*:\s*"([^"]+)"/);
+    if (m) threadId = m[1];
+  }
+
+  const sandbox = input.sandbox || null;
+  const approval = input["approval-policy"] || input.approvalPolicy || null;
+  const outcome = response.isError ? "tool-error" : "ok";
+  const errorKind = (responseText && /session not found/i.test(responseText)) ? "session-not-found" : null;
+
+  return {
+    skill: "auto-hook",
+    tool: toolName,
+    sandbox,
+    approvalPolicy: approval,
+    threadId,
+    promptChars: promptText.length,
+    responseChars: responseText.length,
+    elapsedMs: 0,
+    viaAgent: false,
+    outcome: errorKind || outcome,
+    errorKind,
+    notes: null,
   };
+}
+
+async function cmdLog(args) {
+  let entry;
+  if (args.flags["from-stdin"] === true || args.flags["from-stdin"] === "true") {
+    const raw = await readAllStdin();
+    if (!raw.trim()) {
+      // hook fired without payload — skip silently to avoid noisy errors
+      return;
+    }
+    let payload;
+    try { payload = JSON.parse(raw); } catch { return; }
+    entry = extractFromHookPayload(payload);
+    // Only log calls related to codex tools — guard against stray hook firings
+    if (!/^mcp__codex__/.test(entry.tool)) return;
+  } else {
+    entry = {
+      skill: args.flags["skill"] || null,
+      tool: args.flags["tool"] || "mcp__codex__codex",
+      sandbox: args.flags["sandbox"] || null,
+      approvalPolicy: args.flags["approval-policy"] || null,
+      threadId: args.flags["thread-id"] || null,
+      promptChars: parseInt(args.flags["prompt-chars"], 10) || 0,
+      responseChars: parseInt(args.flags["response-chars"], 10) || 0,
+      elapsedMs: parseInt(args.flags["elapsed-ms"], 10) || 0,
+      viaAgent: args.flags["via-agent"] === true || args.flags["via-agent"] === "true",
+      outcome: args.flags["outcome"] || "ok",
+      errorKind: args.flags["error-kind"] || null,
+      notes: args.flags["notes"] || null,
+    };
+  }
   const file = await appendLog(entry);
-  ok(`로그 기록: ${file}`);
+  // Hook mode runs silently (Claude Code captures stdout/stderr per spec); manual mode prints success.
+  if (!(args.flags["from-stdin"] === true || args.flags["from-stdin"] === "true")) {
+    ok(`로그 기록: ${file}`);
+  }
 }
 
 async function cmdUninstall(manifest) {
@@ -706,6 +821,16 @@ async function cmdUninstall(manifest) {
     // v0.3+: do not auto-delete the legacy plugin bundle. Notify instead.
     warn(`legacy plugin bundle 발견 (${state.installed.pluginBundle}) — 자동 제거되지 않습니다. 수동: rm -rf "$HOME/.claude/${state.installed.pluginBundle}"`);
   }
+  if (state.installed?.hooks) {
+    try {
+      const r = await hooks.remove();
+      if (r.removedGroups) {
+        removed.push(`hooks/PostToolUse (${r.removedGroups})`);
+      }
+    } catch (e) {
+      warn(`PostToolUse hook 제거 중 오류: ${e.message}`);
+    }
+  }
   await removeIfExists(STATE_FILE);
   await removeIfExists(STATE_DIR);
   ok(`제거 완료: ${removed.length}개 항목`);
@@ -721,13 +846,16 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
     info("이전 설치 기록이 없습니다. 처음 설치 흐름으로 진행합니다.");
   }
 
-  // Defaults
+  // Defaults — normalize aliased keys from previous-state configs (e.g. on-demand → manual)
   const defaults = {
     patterns: previousState?.choices?.patterns || [],
     contextPolicy: previousState?.choices?.contextPolicy,
-    improvementLoop: previousState?.choices?.improvementLoop,
+    improvementLoop: normalizeImprovementLoop(manifest, previousState?.choices?.improvementLoop),
     threads: previousState?.choices?.threads,
   };
+  if (previousState?.choices?.improvementLoop && previousState.choices.improvementLoop !== defaults.improvementLoop) {
+    info(`improvementLoop alias 마이그레이션: "${previousState.choices.improvementLoop}" → "${defaults.improvementLoop}"`);
+  }
 
   // Flag overrides
   const flagPatterns = parseListFlag(args.flags["patterns"]);
@@ -769,12 +897,14 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
       defaults.contextPolicy
     ));
 
-  const loopAns = typeof flagLoop === "string" ? flagLoop
-    : (autoYes ? (defaults.improvementLoop || "on-demand") : await askSingle(
+  const loopAnsRaw = typeof flagLoop === "string" ? flagLoop
+    : (autoYes ? (defaults.improvementLoop || "manual") : await askSingle(
       manifest.questions.improvementLoop.label,
       manifest.questions.improvementLoop.choices,
-      defaults.improvementLoop || "on-demand"
+      defaults.improvementLoop || "manual"
     ));
+  const loopAns = normalizeImprovementLoop(manifest, loopAnsRaw);
+  if (loopAnsRaw !== loopAns) info(`improvementLoop "${loopAnsRaw}" → "${loopAns}" (alias)`);
 
   const threadsAns = typeof flagThreads === "string" ? flagThreads
     : (autoYes ? (defaults.threads || "basic") : await askSingle(
@@ -797,6 +927,10 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   log(`  threads: ${choices.threads}`);
 
   if (!autoYes) {
+    if (hooksEnabled(manifest, choices.improvementLoop)) {
+      log(`${c.dim}  ↳ improvementLoop=${choices.improvementLoop} 는 ~/.claude/settings.json에 PostToolUse hook 2개(mcp__codex__codex, mcp__codex__codex-reply)를 추가합니다.${c.reset}`);
+      log(`${c.dim}    제거: codex-on-claude reconfigure --improvement-loop=manual${c.reset}`);
+    }
     const ok2 = await askConfirm("이 설정으로 적용할까요?", true);
     if (!ok2) {
       warn("취소되었습니다. 변경사항 없음.");
@@ -883,7 +1017,7 @@ async function main() {
 Install flags:
   --patterns=review,followup,fix,routine
   --context-policy=direct|summarize|mixed
-  --improvement-loop=off|on-demand|periodic
+  --improvement-loop=off|manual|auto-on-skill|periodic   (alias: on-demand → manual)
   --threads=off|basic|full
   --yes, -y                     모든 확인 자동 수락
   --share-scope=...             (deprecated, ignored — v0.3에서 제거)
@@ -898,6 +1032,7 @@ Suggest flags:
   --reject=N --reason="..."     후보 N 거부 기록
 
 Log flags (모두 옵션):
+  --from-stdin                  Claude Code PostToolUse hook이 stdin으로 보낸 JSON에서 자동 추출
   --skill=codex-review --tool=mcp__codex__codex --sandbox=read-only
   --thread-id=... --prompt-chars=N --response-chars=N --elapsed-ms=N
   --via-agent=true --outcome=ok|session-not-found|tool-error|timeout

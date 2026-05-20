@@ -2,6 +2,20 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] — 2026-05-20
+
+### Added (backward-compatible patch)
+- `improvementLoop` now supports four keys instead of three: `off | manual | auto-on-skill | periodic`. The previous `on-demand` value is accepted as an **alias for `manual`** and silently migrated in `~/.claude/codex-on-claude/config.json` on next `reconfigure` (with a one-line info log).
+- New `auto-on-skill` mode installs PostToolUse hooks in `~/.claude/settings.json` so every call to `mcp__codex__codex` / `mcp__codex__codex-reply` automatically appends a usage log line — no Skill prose dependence. The hook command is `codex-on-claude log --from-stdin` and uses a marker (`_coc.marker = "codex-on-claude:auto-log"`) so uninstall removes only our own entries.
+- `periodic` now implies `auto-on-skill` (hooks + suggestions cron-friendly).
+- New `--from-stdin` flag on the `log` subcommand — reads Claude Code's PostToolUse JSON payload and extracts `tool_name`, `tool_input.sandbox`, `tool_response.threadId`, prompt/response lengths, and `session-not-found` signals automatically.
+- `status` now prints how many PostToolUse hook groups are currently installed under our marker.
+
+### Notes
+- Patch bump (not minor) because the rename uses a transparent alias; `--improvement-loop=on-demand` keeps working, no flag/CLI signature actually changes.
+- Hooks are only installed when `improvementLoop ∈ {auto-on-skill, periodic}`. The interactive flow surfaces a one-line consent reminder before applying; `uninstall` removes them; manual cleanup is `codex-on-claude reconfigure --improvement-loop=manual --yes`.
+- If `~/.claude/settings.json` already has other hooks, we merge non-destructively.
+
 ## [0.3.0] — 2026-05-20
 
 ### Changed (BREAKING)

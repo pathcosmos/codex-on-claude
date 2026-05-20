@@ -1,6 +1,6 @@
 {
   "$schema": "./manifest.schema.json",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "name": "codex-on-claude",
   "description": "Install bridge components that let Claude Code call OpenAI Codex CLI via MCP.",
   "questions": {
@@ -54,29 +54,40 @@
     "improvementLoop": {
       "type": "single",
       "label": "지능적 지속 개선 루프 / continuous improvement loop",
-      "note": "Logging은 trigger 시점에 Skill이 명시적으로 codex-on-claude log를 호출할 때만 발생합니다. CLI/Skill 단의 자동 hook은 v0.3+ PostToolUse 통합 이후 가능합니다.",
       "choices": [
         {
           "key": "off",
-          "label": "끔 / disabled — codex-analyze/improve/log 미설치, 자동 분석 없음",
+          "label": "끔 / disabled — log/analyze/improve 미설치, hook 없음",
           "enableLogging": false,
-          "installAnalyzeSkill": false
+          "installAnalyzeSkill": false,
+          "registerHooks": false
         },
         {
-          "key": "on-demand",
-          "label": "Skill 호출 시 명시 트리거 (codex-* SKILL.md의 MUST 절차로 log/threads 호출) — 권장",
+          "key": "manual",
+          "label": "수동 — Skill prose의 MUST 절차로 log 호출. OS hook 없음. (이전 on-demand)",
           "enableLogging": true,
           "installAnalyzeSkill": true,
-          "semantics": "Skill prose가 log 호출을 의무로 명시. 별도 OS hook 없음. v0.3에서 auto-on-skill 옵션이 부수효과 강제로 보강 예정."
+          "registerHooks": false
+        },
+        {
+          "key": "auto-on-skill",
+          "label": "자동 — PostToolUse hook이 mcp__codex__codex 호출마다 log 자동 append (~/.claude/settings.json 변경 동의 필요)",
+          "enableLogging": true,
+          "installAnalyzeSkill": true,
+          "registerHooks": true
         },
         {
           "key": "periodic",
-          "label": "주기적 자동 분석 — on-demand 위에 cron/loop 기반 정기 analyze 실행 가이드 추가",
+          "label": "주기적 — auto-on-skill 위에 cron/loop 기반 정기 analyze 안내 추가",
           "enableLogging": true,
           "installAnalyzeSkill": true,
+          "registerHooks": true,
           "schedule": "weekly"
         }
-      ]
+      ],
+      "aliases": {
+        "on-demand": "manual"
+      }
     },
     "threads": {
       "type": "single",

@@ -99,7 +99,7 @@ node install/install.mjs
 codex-on-claude \
   --patterns=review,followup,fix,routine \
   --context-policy=mixed \
-  --improvement-loop=on-demand \
+  --improvement-loop=manual \
   --threads=basic \
   --yes
 ```
@@ -133,13 +133,14 @@ codex-on-claude \
 
 | 선택 | 동작 |
 |---|---|
-| `off` | codex-analyze/improve/log Skill 미설치, 자동 분석 없음 |
-| `on-demand` (추천) | codex-* Skill의 MUST 절차에 따라 **Skill 호출 시 명시 트리거로** `codex-on-claude log` 가 호출됨. 분석은 사용자가 `/codex-analyze` 또는 `codex-on-claude analyze`로 트리거. **OS hook 자동 기록은 없음** (v0.3 PostToolUse 통합 예정) |
-| `periodic` | 위와 동일 + cron/loop와 결합한 정기 analyze 가이드 |
+| `off` | codex-analyze/improve/log Skill 미설치, hook 없음 |
+| `manual` (추천 기본) | codex-* Skill의 MUST 절차에 따라 *Skill 호출 시 명시 트리거로* `codex-on-claude log` 가 호출됨. OS hook 없음. (이전 `on-demand` 키는 alias로 호환) |
+| `auto-on-skill` | `~/.claude/settings.json`에 PostToolUse hook 2개를 등록해 `mcp__codex__codex` / `mcp__codex__codex-reply` 호출마다 **자동**으로 log 누락 없이 append. 누락 방지가 필요할 때. |
+| `periodic` | `auto-on-skill` + cron/loop와 결합한 정기 analyze 가이드 |
 
 > 로깅은 **메타데이터만** 기록한다. prompt/response 본문은 절대 기록하지 않음. 외부 전송 없음. `chmod 700`. 언제든 `~/.claude/codex-on-claude/logs/` 삭제 가능.
 >
-> 자동화 시점에 대한 주의: `on-demand` 모드는 *Skill 본문이 그렇게 안내하기 때문에* log가 쌓이지, OS 레벨 hook이 자동으로 가로채는 게 아니다. LLM이 절차를 건너뛰면 해당 호출은 로그에 누락된다. 결정적 누락 방지가 필요하면 v0.3+ 의 `auto-on-skill` 옵션 (PostToolUse hook 기반) 또는 직접 `codex-on-claude log ...` 명령을 호출 후 실행하라.
+> `auto-on-skill`/`periodic` 선택 시 `~/.claude/settings.json`에 hook 항목 2개가 추가된다. 모든 hook 항목에는 우리 marker(`_coc.marker = "codex-on-claude:auto-log"`)가 박혀있어 uninstall/reconfigure 시 정확히 우리 항목만 제거된다. 기존에 다른 hook이 있어도 머지된다.
 
 ### 4. Thread 영속 저장 (single, v0.2+)
 

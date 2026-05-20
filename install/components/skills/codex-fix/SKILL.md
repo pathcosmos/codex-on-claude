@@ -1,7 +1,23 @@
 ---
 name: codex-fix
-description: Use when the user wants Codex to actually edit files (not just review) under a strict file-scope. Triggered by /codex-fix or phrases like "Codex가 직접 고치게 해줘", "let Codex apply the fix". Enforces workspace-write sandbox with explicit file allowlist.
+description: Use when the user wants Codex to actually edit files (not just review) under a strict file-scope. Triggered by /codex-fix or phrases like "Codex가 직접 고치게 해줘", "let Codex apply the fix". Enforces workspace-write sandbox with explicit file allowlist. ALWAYS ends responses with `Thread: <id>` and (catalog enabled) records a decision summary + edited file list.
 ---
+
+## MUST do after every call
+
+1. 응답 마지막 줄 = `Thread: <threadId>` (실패 시 `Thread: (none) — <사유>`).
+2. `--threads != off`이면 카탈로그 등록 + decision 기록:
+   ```sh
+   codex-on-claude threads new <threadId> \
+     --skill=codex-fix --cwd="$PWD" --sandbox=workspace-write \
+     --title="Fix: <응답 핵심 한 줄>" --tags=fix --files=<allowlist>
+   codex-on-claude threads decision <threadId> "위임 범위: <files>, 적용 결과: <edited list 또는 NEEDS_OUT_OF_SCOPE_FILES>"
+   ```
+3. `improvementLoop != off` log (sandbox=workspace-write 그대로):
+   ```sh
+   codex-on-claude log --skill=codex-fix --sandbox=workspace-write \
+     --outcome=ok --thread-id=<threadId> ...
+   ```
 
 # codex-fix
 

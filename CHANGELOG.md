@@ -2,6 +2,20 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.2] — 2026-05-20
+
+### Added
+- `codex-on-claude threads latest [--format=id|json]` — return the most recently-touched thread deterministically. External regression harnesses can use this instead of grepping LLM response text for `threadId`.
+- `codex-on-claude doctor` now also verifies the `codex` MCP server is registered and `Connected`. README "사전 요구사항" updated accordingly.
+- `codex-on-claude threads resume <id> "prompt"` now detects **silent new-session** behavior of codex CLI 0.131 — if `codex exec resume` returns a different `thread_id` than requested, it surfaces `SILENT_NEW_SESSION` to stderr, records an incident on the original thread (`issue=silent-new-session, outcome=lost-context`), and registers the new thread as a bifurcation.
+
+### Changed (docs/Skill prose only — no behavior change)
+- `codex-review`, `codex-followup`, `codex-fix`, `codex-resume` SKILL.md now contain an explicit **"MUST do after every call"** section enforcing: (a) ending responses with a deterministic `Thread: <id>` line, (b) registering metadata via `codex-on-claude threads new` when threads are enabled, (c) appending a usage log via `codex-on-claude log` when the improvement loop is enabled. This addresses the "Skill prose ≠ actual LLM behavior" gap surfaced by external regression tests.
+- README and `manifest.json` clarify that `improvementLoop=on-demand` does *not* install OS-level hooks — log entries appear because the Skill prose tells the LLM to write them, so any skipped Skill call silently misses a log entry. Hook-based enforcement is queued for v0.3.
+
+### Notes
+- External regression suite (`codex-on-claude-test`) verified 4 categories of behavioral gap; this release closes the deterministic surface area while preserving backward compatibility (no flag/CLI signature changes). The remaining gaps (option-key rename, PostToolUse hook auto-logging) are scheduled for v0.3.
+
 ## [0.2.1] — 2026-05-20
 
 ### Fixed

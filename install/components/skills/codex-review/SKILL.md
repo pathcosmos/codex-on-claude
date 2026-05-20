@@ -1,7 +1,33 @@
 ---
 name: codex-review
-description: Use when the user wants a second-opinion code review from Codex on the current working changes, an uncommitted diff, or a specific set of files. Triggered by /codex-review or phrases like "Codex로 리뷰", "ask Codex to review", "두 번째 의견". Defaults to read-only.
+description: Use when the user wants a second-opinion code review from Codex on the current working changes, an uncommitted diff, or a specific set of files. Triggered by /codex-review or phrases like "Codex로 리뷰", "ask Codex to review", "두 번째 의견". Defaults to read-only. ALWAYS ends responses with a `Thread: <id>` line and (when threads catalog is enabled) registers metadata to the catalog before returning.
 ---
+
+## MUST do after every call (deterministic enforcement)
+
+이 Skill을 호출한 직후 다음 두 가지를 반드시 수행한다. 이 단계는 외부 자동화가 응답 텍스트 변동성에 의존하지 않게 하기 위한 결정적 hook이다.
+
+1. **응답 마지막 줄에 정확히 다음 형식을 출력**한다 (한 줄, 다른 텍스트 뒤에 붙이지 말 것):
+   ```
+   Thread: <threadId>
+   ```
+   대안 텍스트("Session thread ID: ...", "thread id: ...") 사용 금지. 호출이 실패해 threadId가 없으면:
+   ```
+   Thread: (none) — <짧은 실패 사유>
+   ```
+
+2. **`--threads != off` 환경이면** 카탈로그에 메타 등록을 즉시 실행한다 (Bash):
+   ```sh
+   codex-on-claude threads new <threadId> \
+     --skill=codex-review --cwd="$PWD" --sandbox=read-only \
+     --title="<응답 첫 줄 요지, 60자 이내>" \
+     --tags=review --bump-turn
+   ```
+   `improvementLoop != off` 환경이면 같은 시점에:
+   ```sh
+   codex-on-claude log --skill=codex-review --sandbox=read-only --outcome=ok \
+     --thread-id=<threadId> --prompt-chars=<len> --response-chars=<len>
+   ```
 
 # codex-review
 

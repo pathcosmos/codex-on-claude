@@ -109,6 +109,16 @@ export async function get(threadId) {
   return await readJson(threadFile(threadId));
 }
 
+export async function latest({ status } = {}) {
+  await ensureDir();
+  const idx = await loadIndex();
+  let items = idx.threads || [];
+  if (!items.length) items = await saveIndexFromDir();
+  if (status) items = items.filter((t) => t.status === status);
+  // index is already sorted by lastUsedAt desc
+  return items[0] || null;
+}
+
 export async function listAll({ status, tag, since, originatingSkill, limit = 50 } = {}) {
   await ensureDir();
   const idx = await loadIndex();

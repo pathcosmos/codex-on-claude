@@ -239,6 +239,19 @@ async function preflight({ autoYes }) {
     }
   }
 
+  // codex MCP server registration check — external automation often needs this confirmed up front
+  if (claudePath) {
+    const r = await run("claude", ["mcp", "get", "codex"]);
+    const combined = (r.stdout + r.stderr).toLowerCase();
+    if (r.code === 0 && combined.includes("connected")) {
+      ok(`codex MCP 서버: ✓ Connected`);
+    } else if (r.code === 0) {
+      warn(`codex MCP 등록은 보였지만 상태 불명확 — \`claude mcp list\`로 확인`);
+    } else {
+      warn(`codex MCP 미등록 — 설치 시 자동 등록 시도됩니다. 수동 등록: \`claude mcp add --scope user codex -- codex mcp-server\``);
+    }
+  }
+
   return { codexPath, claudePath };
 }
 
@@ -491,6 +504,20 @@ async function cmdThreads(args) {
       process.stdout.write(threads.renderList(items) + "\n");
       return;
     }
+    case "latest": {
+      const meta = await threads.latest({ status: typeof f.status === "string" ? f.status : undefined });
+      if (!meta) { process.stderr.write("(no threads)\n"); process.exit(1); }
+      const fmt = typeof f.format === "string" ? f.format : "id";
+      if (fmt === "id") { process.stdout.write(meta.threadId + "\n"); return; }
+      if (fmt === "json") {
+        const full = await threads.get(meta.threadId);
+        process.stdout.write(JSON.stringify(full, null, 2) + "\n");
+        return;
+      }
+      // fall back to render
+      process.stdout.write(threads.renderList([meta]) + "\n");
+      return;
+    }
     case "show": {
       const t = await threads.get(tid);
       if (!t) { err(`thread not found: ${tid}`); process.exit(1); }
@@ -587,8 +614,26 @@ async function cmdThreads(args) {
       info(`auto-resume via: codex exec resume --skip-git-repo-check --json ${tid} "<prompt>"`);
       const r = await run("codex", ["exec", "resume", "--skip-git-repo-check", "--json", tid, prompt]);
       if (r.code === 0) {
-        ok("resume succeeded");
-        await threads.createOrUpdate(tid, { bumpTurn: true });
+        // Detect silent new-session: codex CLI 0.131 silently starts a new thread when the given id is unknown
+        const m = r.stdout.match(/"thread_id"\s*:\s*"([^"]+)"/);
+        const returnedTid = m ? m[1] : null;
+        if (returnedTid && returnedTid !== tid) {
+          err(`SILENT_NEW_SESSION: codex returned a different threadId (${returnedTid}) for resume of ${tid}.`);
+          err(`  This usually means the original thread was not found and codex silently started a NEW session.`);
+          await threads.addIncident(tid, {
+            issue: "silent-new-session",
+            resolution: `codex created new threadId ${returnedTid} instead of resuming`,
+            outcome: "lost-context",
+          });
+          // Register the new thread separately so the user can see the bifurcation
+          await threads.createOrUpdate(returnedTid, {
+            originatingSkill: "codex-resume-bifurcation",
+            title: `(silent new session from resume of ${tid.slice(0, 8)})`,
+          });
+        } else {
+          ok("resume succeeded (same threadId returned)");
+          await threads.createOrUpdate(tid, { bumpTurn: true });
+        }
         process.stdout.write(r.stdout);
       } else {
         err(`resume failed (code ${r.code})`);
@@ -599,6 +644,7 @@ async function cmdThreads(args) {
     default:
       process.stdout.write(`threads subcommands:
   list [--status=active|resolved|archived] [--tag=...] [--since=7d|2026-05-01] [--skill=...] [--limit=N]
+  latest [--status=...] [--format=id|json]   # 가장 최근 thread (외부 자동화용 deterministic)
   show <id>
   new|upsert|touch <id> [--title="..."] [--tags=a,b] [--skill=...] [--cwd=...] [--sandbox=read-only] [--files=a,b] [--approval-policy=...] [--fallback=auto-resume|ask|new] [--bump-turn]
   goal|outcome|decision|note <id> "text..."

@@ -58,13 +58,16 @@ Claude Code(주 에이전트)와 Codex CLI(보조 에이전트) 사이의 호출
 | Node.js | 18.17+ | 설치 스크립트 실행용 |
 | Claude Code (`claude`) | 2.1.x | `claude --version`으로 확인 |
 | Codex CLI (`codex`) | 0.13.x+ | `codex --version`, `codex doctor` |
+| codex MCP 서버 | Connected | `claude mcp get codex` → `Status: ✓ Connected` |
 | zsh 또는 bash | - | 설치 스크립트가 사용 |
 
-Claude/Codex 모두 정상 로그인 상태여야 한다.
+Claude/Codex 모두 정상 로그인 + MCP 등록 상태여야 한다.
 
 ```sh
 claude auth status --text
 codex doctor --summary
+claude mcp get codex          # Status: ✓ Connected 가 보여야 정상
+codex-on-claude doctor        # 한 번에 모두 점검
 ```
 
 ---
@@ -135,13 +138,15 @@ codex-on-claude \
 
 ### 4. 지속 개선 루프 (single)
 
-| 선택 | 결과 |
+| 선택 | 동작 |
 |---|---|
-| `off` | 로깅/분석 모두 끔 |
-| `on-demand` (추천) | 로컬 사용 로그 수집 + 사용자 트리거 시 분석/제안 |
-| `periodic` | 정기적 자동 분석 + 제안 |
+| `off` | codex-analyze/improve/log Skill 미설치, 자동 분석 없음 |
+| `on-demand` (추천) | codex-* Skill의 MUST 절차에 따라 **Skill 호출 시 명시 트리거로** `codex-on-claude log` 가 호출됨. 분석은 사용자가 `/codex-analyze` 또는 `codex-on-claude analyze`로 트리거. **OS hook 자동 기록은 없음** (v0.3 PostToolUse 통합 예정) |
+| `periodic` | 위와 동일 + cron/loop와 결합한 정기 analyze 가이드 |
 
 > 로깅은 **메타데이터만** 기록한다. prompt/response 본문은 절대 기록하지 않음. 외부 전송 없음. `chmod 700`. 언제든 `~/.claude/codex-on-claude/logs/` 삭제 가능.
+>
+> 자동화 시점에 대한 주의: `on-demand` 모드는 *Skill 본문이 그렇게 안내하기 때문에* log가 쌓이지, OS 레벨 hook이 자동으로 가로채는 게 아니다. LLM이 절차를 건너뛰면 해당 호출은 로그에 누락된다. 결정적 누락 방지가 필요하면 v0.3+ 의 `auto-on-skill` 옵션 (PostToolUse hook 기반) 또는 직접 `codex-on-claude log ...` 명령을 호출 후 실행하라.
 
 ### 5. Thread 영속 저장 (single, v0.2+)
 
@@ -245,6 +250,7 @@ codex-on-claude help          도움말
 
 ```sh
 codex-on-claude threads list [--status=active|resolved|archived] [--tag=...] [--since=7d]
+codex-on-claude threads latest [--status=...] [--format=id|json]    # deterministic 최근 thread
 codex-on-claude threads show <threadId>
 codex-on-claude threads new  <threadId> --title="..." --tags=a,b --skill=codex-review --cwd="$PWD" --sandbox=read-only
 codex-on-claude threads goal     <threadId> "Verify naming consistency"

@@ -1,7 +1,20 @@
 ---
 name: codex-followup
-description: Use when continuing an existing Codex thread with a follow-up question (e.g., "Codex에 이어서 물어봐", "/codex-followup", "ask Codex again on the same thread"). Requires a known threadId from a previous Codex call. Stays read-only by default.
+description: Use when continuing an existing Codex thread with a follow-up question (e.g., "Codex에 이어서 물어봐", "/codex-followup", "ask Codex again on the same thread"). Requires a known threadId from a previous Codex call. Stays read-only by default. ALWAYS ends responses with `Thread: <id>` and bumps turn count in the catalog.
 ---
+
+## MUST do after every call
+
+1. 응답 마지막 줄을 정확히 `Thread: <threadId>` 형식으로 출력. 실패 시 `Thread: (none) — <사유>`.
+2. `--threads != off` 환경이면 turn 카운트 증가:
+   ```sh
+   codex-on-claude threads new <threadId> --skill=codex-followup --bump-turn
+   ```
+3. `improvementLoop != off` 환경이면 log:
+   ```sh
+   codex-on-claude log --skill=codex-followup --sandbox=read-only --outcome=ok \
+     --thread-id=<threadId> --prompt-chars=<len> --response-chars=<len>
+   ```
 
 # codex-followup
 

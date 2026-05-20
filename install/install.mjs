@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // codex-on-claude installer / reconfigurer
 // Usage:
-//   codex-on-claude              # interactive install (uses saved config if present as defaults)
-//   codex-on-claude reconfigure  # interactive re-selection with previous answers as defaults
-//   codex-on-claude status       # show current installation state
-//   codex-on-claude uninstall    # remove all installed components
+//   npx --yes codex-on-claude@latest  # canonical: pull latest + auto-reconfigure if state exists
+//   codex-on-claude                   # install or reconfigure (auto-detects existing state)
+//   codex-on-claude reconfigure       # explicit reconfigure
+//   codex-on-claude status            # show current installation state
+//   codex-on-claude uninstall         # remove all installed components
 //   codex-on-claude --patterns=review,followup --context-policy=mixed --improvement-loop=on-demand --threads=basic --yes
 //
 // No external dependencies. Pure Node built-ins.
@@ -336,6 +337,28 @@ async function preflight({ autoYes }) {
     } else {
       warn(`codex MCP not registered — install will attempt auto-registration. Manual: \`claude mcp add --scope user codex -- codex mcp-server\``);
     }
+  }
+
+  // Self-check: is `codex-on-claude` reachable on PATH, and does it match the running script?
+  // Catches the common "command not found right after npm update -g" stale-shell-hash case.
+  try {
+    const selfPath = process.argv[1] || "";
+    const whichPath = which("codex-on-claude");
+    if (!whichPath) {
+      info(`codex-on-claude not on PATH. Run via \`npx --yes codex-on-claude@latest\`, or add the npm global bin dir (\`npm bin -g\`) to PATH.`);
+    } else {
+      let selfReal = selfPath;
+      let whichReal = whichPath;
+      try { selfReal = (await fs.realpath(selfPath)); } catch {}
+      try { whichReal = (await fs.realpath(whichPath)); } catch {}
+      if (selfReal && whichReal && selfReal !== whichReal && !/\/_npx\//.test(selfReal)) {
+        warn(`Stale shell command hash: this run is ${selfPath} but \`which codex-on-claude\` resolves to ${whichPath}. Run \`hash -r\` or open a new terminal.`);
+      } else {
+        ok(`codex-on-claude on PATH: ${whichPath}`);
+      }
+    }
+  } catch {
+    // best-effort — never let self-check abort preflight
   }
 
   return { codexPath, claudePath };
@@ -902,6 +925,21 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
     info("No prior install state found. Proceeding as a fresh install.");
   }
 
+  // Version-aware banner — make "update + reconfigure" obvious when prior state exists.
+  if (previousState?.choices) {
+    const vPrev = previousState.version || "?";
+    const vCurr = manifest.version;
+    const versionLine = vPrev === vCurr
+      ? `${c.cyan}v${vCurr}${c.reset} ${c.dim}(same version)${c.reset}`
+      : `${c.dim}v${vPrev}${c.reset} ${c.bold}→${c.reset} ${c.cyan}v${vCurr}${c.reset}`;
+    log(`\n${c.bold}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${c.reset}`);
+    log(` ${c.bold}Existing install detected.${c.reset}`);
+    log(`   codex-on-claude  ${versionLine}`);
+    log(`   ${c.dim}Running update + reconfigure — previous answers are kept${c.reset}`);
+    log(`   ${c.dim}as defaults. Enter to keep · ↑/↓/Space to change.${c.reset}`);
+    log(`${c.bold}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${c.reset}`);
+  }
+
   // Defaults — normalize aliased keys from previous-state configs (e.g. on-demand → manual)
   const defaults = {
     patterns: previousState?.choices?.patterns || [],
@@ -1045,8 +1083,14 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   log(`\n${c.bold}5. Next steps${c.reset}`);
   log(`  - Restart Claude Code so the new Skills/Agent are picked up.`);
   log(`  - Check status: ${c.cyan}codex-on-claude status${c.reset}`);
-  log(`  - Reconfigure:  ${c.cyan}codex-on-claude reconfigure${c.reset}`);
+  log(`  - Reconfigure:  ${c.cyan}codex-on-claude reconfigure${c.reset}  ${c.dim}(or just \`npx --yes codex-on-claude@latest\`)${c.reset}`);
   log(`  - Uninstall:    ${c.cyan}codex-on-claude uninstall${c.reset}`);
+
+  const sh = (process.env.SHELL || "").split("/").pop();
+  if (sh === "zsh" || sh === "bash") {
+    log(`\n  ${c.dim}hint: if \`codex-on-claude\` reports "command not found" right after an upgrade,${c.reset}`);
+    log(`  ${c.dim}      run \`hash -r\` in this shell (or open a new terminal) — npm replaced the binary.${c.reset}`);
+  }
 }
 
 async function main() {
@@ -1097,8 +1141,8 @@ async function main() {
   }
   if (sub === "help" || args.flags.help) {
     log(`Usage:
-  codex-on-claude               Install interactively (preflight included)
-  codex-on-claude reconfigure   Reconfigure (previous answers as defaults; review/edit/cancel at the end)
+  codex-on-claude               Install or reconfigure (auto-detects existing state; preflight included)
+  codex-on-claude reconfigure   Explicit reconfigure (same as no-arg when state exists)
   codex-on-claude doctor        Run preflight only (Node/codex/claude/MCP checks)
   codex-on-claude status        Show install state
   codex-on-claude uninstall     Remove installed components
@@ -1145,8 +1189,8 @@ Threads subcommand:
   threads remove <id>
 
 Examples:
+  npx --yes codex-on-claude@latest      # canonical: update + auto-reconfigure if state exists
   codex-on-claude --patterns=review,followup --context-policy=mixed --improvement-loop=on-demand --threads=basic --yes
-  npx codex-on-claude reconfigure
   codex-on-claude analyze --days=7 --format=markdown --save
   codex-on-claude suggest --apply=2
   codex-on-claude threads new 019e1234-... --title="Review PR #42" --tags=review,react --skill=codex-review --cwd="$PWD"
@@ -1156,7 +1200,10 @@ Examples:
     return;
   }
 
-  await cmdInstallOrReconfigure(manifest, args, { reconfigure: false });
+  // No subcommand: auto-detect existing install. With prior state, run the reconfigure path
+  // so the user sees a clear "update + reconfigure" banner and the same flow as `reconfigure`.
+  const existing = await loadState();
+  await cmdInstallOrReconfigure(manifest, args, { reconfigure: !!existing?.choices });
 }
 
 main().catch((e) => {

@@ -2,6 +2,19 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.3] — 2026-05-20
+
+### Added (UX, patch — no flag / CLI signature changes)
+- **Unified `npx --yes codex-on-claude@latest`** as the canonical command. When prior install state is found, the no-arg path now flips into reconfigure mode automatically and prints a `vPREV → vCURR` banner so "update + reconfigure" is one obvious step instead of two.
+- **`preflight` self-check.** `doctor` (and every install/reconfigure run) now checks whether `which codex-on-claude` resolves and whether it matches the running script's realpath. If they differ, you get a `Run \`hash -r\`` hint — catches the "command not found right after `npm update -g`" stale-shell-hash case.
+- **"Next steps" stale-shell hint.** After a fresh install in zsh / bash, the installer reminds you to run `hash -r` if the new binary doesn't resolve in the current shell.
+
+### Changed
+- Help text: `codex-on-claude` (no arg) is now documented as "Install or reconfigure (auto-detects existing state)". Examples lead with `npx --yes codex-on-claude@latest`.
+- `README.md` Install / Updating / Troubleshooting sections now lead with the canonical `npx --yes codex-on-claude@latest`. New troubleshooting entries for the `command not found` (stale shell hash) and `npx ENOENT ... _npx/<hash>/package.json` (corrupted npx cache) cases.
+
+No behavioral or schema changes — only the no-arg flow's mode auto-flips when state exists, and the reconfigure flow itself is unchanged.
+
 ## [0.3.2] — 2026-05-20
 
 ### Changed (docs / i18n)

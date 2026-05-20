@@ -16,8 +16,8 @@
 # Prerequisites already installed: Codex CLI + Claude Code, both logged in.
 codex --version && claude --version
 
-# Interactive install (recommended)
-npx codex-on-claude
+# Canonical: install or update + reconfigure in one shot
+npx --yes codex-on-claude@latest
 ```
 
 The installer:
@@ -27,7 +27,7 @@ The installer:
 3. Shows a final review screen with `Apply / Edit again / Cancel`.
 4. Copies the selected Skills (and optional Agent / hooks) under `~/.claude/`.
 
-Re-run any time with `codex-on-claude reconfigure` — previous answers come pre-selected.
+Run the same command any time to update + reconfigure — if prior state is found, the installer prints a `vPREV → vCURR` banner and walks you through previous answers as defaults. Or use `codex-on-claude reconfigure` explicitly.
 
 ---
 
@@ -70,8 +70,10 @@ codex-on-claude doctor        # runs all of the above in one shot
 ### A. via npx (recommended)
 
 ```sh
-npx codex-on-claude              # always fetches the latest version
+npx --yes codex-on-claude@latest   # always pulls latest + auto-reconfigures if state exists
 ```
+
+The `--yes` flag skips the "install package" confirmation; `@latest` cache-busts npx so you never hit a stale `_npx/<hash>/` cache. The bare form `npx codex-on-claude` also works but is more prone to corrupted-cache `ENOENT` errors (see [Troubleshooting](#troubleshooting)).
 
 ### B. global install
 
@@ -105,15 +107,15 @@ codex-on-claude \
 
 ## Updating codex-on-claude
 
-- **npx users** — nothing extra to do. `npx codex-on-claude` (or `npx codex-on-claude@latest`) refreshes to the newest release automatically.
-- **Global install** — bump via npm:
+- **npx users** — one command does both. `npx --yes codex-on-claude@latest` fetches the newest release **and** auto-runs reconfigure when prior state is found (you'll see a `vPREV → vCURR` banner). No need to chain a separate `reconfigure` call.
+- **Global install** — bump via npm, then re-run:
   ```sh
-  npm update -g codex-on-claude
-  # or to jump to an explicit version:
-  npm install -g codex-on-claude@latest
-  codex-on-claude --version
+  npm install -g codex-on-claude@latest    # `npm update -g` also works
+  hash -r                                  # zsh/bash: refresh the command hash so the new binary is picked up
+  codex-on-claude                          # auto-reconfigures because prior state is detected
   ```
-- **Re-run reconfigure after updating.** Your previous answers come pre-selected, you can change any of the four options via arrow keys, and the final review screen shows exactly what's about to be saved.
+  If `codex-on-claude` still says "command not found" after `npm update -g`, that's a stale shell hash (see [Troubleshooting](#troubleshooting)).
+- **Re-run reconfigure after updating.** Whether via npx or global, your previous answers come pre-selected, you can change any of the four options via arrow keys, and the final review screen shows exactly what's about to be saved.
 - **Roll back a release** if needed:
   ```sh
   npm install -g codex-on-claude@0.3.1
@@ -401,6 +403,31 @@ After install (on a user machine):
 ---
 
 ## Troubleshooting
+
+### `codex-on-claude: command not found` right after `npm update -g` / `npm install -g`
+
+Stale shell command hash — npm replaced the binary file on disk, but your current zsh/bash session is still caching the old path. Fix:
+
+```sh
+hash -r        # zsh / bash: clear cached command lookups
+# or: rehash   # zsh-specific
+# or open a new terminal
+codex-on-claude --version
+```
+
+`codex-on-claude doctor` (v0.3.3+) auto-detects this case and prints the same hint.
+
+### `npx codex-on-claude` fails with `ENOENT … _npx/<hash>/package.json`
+
+Corrupted npx per-package cache, usually from a previously interrupted run. Force a fresh download:
+
+```sh
+npx --yes codex-on-claude@latest   # `@latest` cache-busts the per-package directory
+# still broken? nuke npx's cache entirely:
+rm -rf ~/.npm/_npx
+```
+
+The canonical install command in this README (`npx --yes codex-on-claude@latest`) avoids this class of failure because `@latest` forces npx to revalidate the package version on every run.
 
 ### `claude mcp get codex` reports "Failed to connect"
 

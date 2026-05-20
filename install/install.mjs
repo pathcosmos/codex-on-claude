@@ -801,7 +801,14 @@ function extractFromHookPayload(payload) {
   //   { session_id, tool_name, tool_input, tool_response, ... }
   const toolName = payload.tool_name || payload.toolName || "mcp__codex__codex";
   const input = payload.tool_input || payload.toolInput || {};
-  const response = payload.tool_response || payload.toolResponse || {};
+  let response = payload.tool_response || payload.toolResponse || {};
+  if (typeof response === "string") {
+    try {
+      const parsed = JSON.parse(response);
+      if (parsed && typeof parsed === "object") response = parsed;
+    } catch {}
+  }
+  const durationMs = Number(payload.duration_ms ?? payload.durationMs);
   const promptText = typeof input.prompt === "string" ? input.prompt : "";
 
   // tool_response content can be a string or a structured array
@@ -812,6 +819,8 @@ function extractFromHookPayload(payload) {
     responseText = response.content.map((c) => (typeof c === "string" ? c : c?.text || "")).join("");
   } else if (response.threadId && response.content) {
     responseText = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
+  } else if (response && typeof response === "object") {
+    responseText = JSON.stringify(response) || "";
   }
 
   // threadId discovery
@@ -835,7 +844,7 @@ function extractFromHookPayload(payload) {
     threadId,
     promptChars: promptText.length,
     responseChars: responseText.length,
-    elapsedMs: 0,
+    elapsedMs: Number.isFinite(durationMs) ? durationMs : 0,
     viaAgent: false,
     outcome: errorKind || outcome,
     errorKind,
@@ -843,9 +852,26 @@ function extractFromHookPayload(payload) {
   };
 }
 
+async function shouldAcceptAutoHookLog() {
+  try {
+    const state = await readJson(STATE_FILE);
+    const improvementLoop = state?.choices?.improvementLoop;
+    return improvementLoop === "auto-on-skill" || improvementLoop === "periodic";
+  } catch {
+    return true;
+  }
+}
+
+function isFromStdin(args) {
+  return args.flags["from-stdin"] === true || args.flags["from-stdin"] === "true";
+}
+
 async function cmdLog(args) {
+  const fromStdin = isFromStdin(args);
+  if (fromStdin && !(await shouldAcceptAutoHookLog())) return;
+
   let entry;
-  if (args.flags["from-stdin"] === true || args.flags["from-stdin"] === "true") {
+  if (fromStdin) {
     const raw = await readAllStdin();
     if (!raw.trim()) {
       // hook fired without payload — skip silently to avoid noisy errors
@@ -874,7 +900,7 @@ async function cmdLog(args) {
   }
   const file = await appendLog(entry);
   // Hook mode runs silently (Claude Code captures stdout/stderr per spec); manual mode prints success.
-  if (!(args.flags["from-stdin"] === true || args.flags["from-stdin"] === "true")) {
+  if (!fromStdin) {
     ok(`Log recorded: ${file}`);
   }
 }
@@ -1105,7 +1131,8 @@ async function main() {
     process.exit(1);
   }
 
-  log(`${c.bold}codex-on-claude${c.reset} v${manifest.version}`);
+  // Keep automation stdout clean while preserving the interactive banner on stderr.
+  console.error(`${c.bold}codex-on-claude${c.reset} v${manifest.version}`);
 
   if (sub === "status") {
     await cmdStatus();

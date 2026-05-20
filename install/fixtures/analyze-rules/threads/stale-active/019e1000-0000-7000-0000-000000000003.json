@@ -1,0 +1,17 @@
+{
+  "threadId": "019e1000-0000-7000-0000-000000000003",
+  "title": "Naming consistency check, hooks dir",
+  "tags": ["review", "naming"],
+  "originatingSkill": "codex-review",
+  "originatingCwd": "/fixture/proj-c",
+  "scope": { "files": ["src/hooks/"], "sandbox": "read-only" },
+  "summaries": [
+    { "kind": "outcome", "text": "Codex flagged 1 inconsistent name", "ts": "2026-04-10T09:00:00.000Z" }
+  ],
+  "incidents": [],
+  "fallbackStrategy": "ask",
+  "status": "active",
+  "turnCount": 1,
+  "createdAt": "2026-04-10T09:00:00.000Z",
+  "lastUsedAt": "2026-04-10T09:00:00.000Z"
+}

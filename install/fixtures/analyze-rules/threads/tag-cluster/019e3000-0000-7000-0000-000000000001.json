@@ -1,0 +1,15 @@
+{
+  "threadId": "019e3000-0000-7000-0000-000000000001",
+  "title": "PR #100 security pass",
+  "tags": ["security", "pr-100"],
+  "originatingSkill": "codex-review",
+  "originatingCwd": "/fixture/proj-sec",
+  "scope": { "files": ["src/auth.js"], "sandbox": "read-only" },
+  "summaries": [],
+  "incidents": [],
+  "fallbackStrategy": "ask",
+  "status": "resolved",
+  "turnCount": 2,
+  "createdAt": "2026-05-05T10:00:00.000Z",
+  "lastUsedAt": "2026-05-05T11:00:00.000Z"
+}

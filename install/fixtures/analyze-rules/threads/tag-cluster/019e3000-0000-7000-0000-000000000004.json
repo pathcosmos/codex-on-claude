@@ -1,0 +1,15 @@
+{
+  "threadId": "019e3000-0000-7000-0000-000000000004",
+  "title": "PR #103 security pass",
+  "tags": ["security", "pr-103"],
+  "originatingSkill": "codex-review",
+  "originatingCwd": "/fixture/proj-sec",
+  "scope": { "files": ["src/csrf.js"], "sandbox": "read-only" },
+  "summaries": [],
+  "incidents": [],
+  "fallbackStrategy": "ask",
+  "status": "resolved",
+  "turnCount": 1,
+  "createdAt": "2026-05-08T10:00:00.000Z",
+  "lastUsedAt": "2026-05-08T10:30:00.000Z"
+}

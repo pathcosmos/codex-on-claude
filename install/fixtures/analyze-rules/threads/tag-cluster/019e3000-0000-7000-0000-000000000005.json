@@ -1,0 +1,15 @@
+{
+  "threadId": "019e3000-0000-7000-0000-000000000005",
+  "title": "PR #104 security pass",
+  "tags": ["security", "pr-104"],
+  "originatingSkill": "codex-review",
+  "originatingCwd": "/fixture/proj-sec",
+  "scope": { "files": ["src/cors.js"], "sandbox": "read-only" },
+  "summaries": [],
+  "incidents": [],
+  "fallbackStrategy": "ask",
+  "status": "active",
+  "turnCount": 1,
+  "createdAt": "2026-05-19T10:00:00.000Z",
+  "lastUsedAt": "2026-05-19T10:30:00.000Z"
+}

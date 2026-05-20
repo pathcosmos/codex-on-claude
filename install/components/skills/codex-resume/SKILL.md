@@ -14,7 +14,13 @@ Use when `mcp__codex__codex-reply` returns `Session not found for thread_id`, or
 
 ## How to invoke
 
-Run via Bash:
+**Preferred** — use the wrapper, which performs SILENT_NEW_SESSION detection automatically:
+
+```sh
+codex-on-claude threads resume <threadId> "<follow-up prompt>"
+```
+
+**Fallback / implementation detail** — bare `codex exec` if the wrapper is unavailable. You then have to do the mismatch check yourself:
 
 ```sh
 codex exec resume --skip-git-repo-check --json <threadId> "<follow-up prompt>"
@@ -30,7 +36,7 @@ Extract that `text` and report it to the user.
 
 ## CRITICAL: silent new-session detection
 
-`codex exec resume <id>` (CLI 0.131) **silently starts a new thread if the given id is not on disk** — no error. The user expects continuity but actually gets a fresh session = silent context loss. This Skill must always:
+`codex exec resume <id>` (CLI 0.131) returns a clean error for unknown, well-formed UUIDv7 ids (`exit 1`, `no rollout found for thread id...`), but malformed ids that do not parse as UUIDs still silently start a fresh thread with a new UUID. The user expects continuity but actually gets a fresh session = silent context loss. This Skill must always:
 
 1. Read `thread_id` out of the resume response.
 2. If it does not match the input `threadId`, surface this to the main context explicitly:
@@ -48,6 +54,8 @@ Extract that `text` and report it to the user.
 4. Offer the user a choice:
    - (a) Proceed with the new thread, accepting context loss
    - (b) Stop so they can recover the original conversation manually
+
+Note: this wrapper still defends against future Codex regressions; the detection code remains correct even though the current trigger condition is narrow.
 
 The `codex-on-claude threads resume <id> "prompt"` subcommand performs this check automatically — prefer it over a bare `codex exec resume`.
 

@@ -2,6 +2,31 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.4] — 2026-05-20
+
+### Fixed (production bug fixes — auto-on-skill / threads / hook safety)
+
+- **`threadId` was always `null` in PostToolUse hook log entries.** Claude Code 2.1.x sends `tool_response` to PostToolUse hooks as a **JSON-encoded string**, not a parsed object. The previous `extractFromHookPayload` (install.mjs:799-853) read `response.threadId` directly and the regex fallback couldn't match doubly-escaped quotes, so every `usage-YYYY-MM-DD.jsonl` entry produced by the `auto-on-skill` hook had `"threadId": null`. As a result, analyzer rules that join logs to threads (`ruleSessionNotFound`, `ruleIncidentRepeat`, future threadId-correlated rules) silently degraded. Fix: try `JSON.parse(response)` when `tool_response` is a string, then read `.threadId` / `.thread_id` as before. Verified end-to-end: a real PostToolUse payload now yields the correct UUIDv7 in the log.
+- **`elapsedMs` was hardcoded to `0` in hook logs.** Now populated from `payload.duration_ms` (Claude Code's measured tool latency). The fallback stays `0` for synthetic payloads that lack timing.
+- **Mixed-ownership hook group could erase user hooks.** `install/hooks.mjs`'s previous `isOursGroup` filter used `.some()` semantics — if a `PostToolUse` group accidentally contained BOTH a user hook and a `codex-on-claude:auto-log` marked hook, the entire group (including the user hook) was deleted on `uninstall` / `reconfigure --improvement-loop=off`. Added `stripOursFromGroups()` (hooks.mjs:50-58) which operates at the hook level — preserves user hooks even when intermixed with our markers. The installer still never produces mixed groups itself; this fix protects against manual edits to `settings.json`.
+- **Hook kept logging after `improvementLoop` changed in `config.json` without `reconfigure`.** Once installed, the PostToolUse hook command path (`codex-on-claude log --from-stdin`) was unconditional — silent telemetry from the user's perspective. Added a runtime guard `shouldAcceptAutoHookLog()` (install.mjs:855-863) that the `--from-stdin` path consults before reading stdin: if `~/.claude/codex-on-claude/config.json`'s `improvementLoop` is `off` or `manual`, the hook silently no-ops. Manual `/codex-log` flow (no `--from-stdin`) is unaffected. Corrupt/missing config fail-opens so existing installs don't break unexpectedly. Verified across `off / manual / auto-on-skill / periodic / corrupt-config` — all behave correctly.
+
+### Changed
+
+- **CLI banner moved from stdout to stderr.** `install.mjs:1135` now uses `console.error` for the top-level `codex-on-claude vX.Y.Z` line. Stdout is now clean for data-mode subcommands such as `threads latest --format=id` and `analyze --format=json` — no more `sed 's/\x1b\[[0-9;]*m//g'` workaround in automation. Interactive humans still see the banner inline because most terminals show stderr alongside stdout. Subcommand-specific output (status data, threads list, analyze report, etc.) stays on stdout where it always was.
+
+### Internal (docs / SKILL accuracy / test infrastructure)
+
+- **`codex-resume/SKILL.md` SILENT-new-session trigger condition corrected.** Prior text claimed "codex CLI 0.131 silently starts a new thread if the given id is not on disk." Phase B test execution (this session) confirmed that codex CLI 0.131 actually **returns a clean error (exit 1, `no rollout found for thread id...`) for well-formed UUIDv7 unknown ids**; SILENT_NEW_SESSION fires only for **malformed** thread ids (anything that doesn't parse as a UUID). The detection code in `threads resume` is still correct — only the documented trigger condition was misstated. Also reordered "How to invoke" to lead with the `codex-on-claude threads resume` wrapper (which performs the mismatch check automatically), with bare `codex exec resume` as the fallback / implementation detail.
+- **New defensive test scenario `G7-3e`** in `docs/test-scenarios-codex-calls.md` — verifies the `shouldAcceptAutoHookLog` guard end-to-end across `off` / `manual` modes. Companion to existing G7-1 (install-time loop check) so post-install config drift is also covered.
+- **New fixtures** under `install/fixtures/analyze-rules/` (15 files): per-rule deterministic seed data for the 9 analyzer rules. Each fixture triggers exactly one rule, so `codex-on-claude analyze` can be regression-tested without waiting for organic usage to accumulate. See `install/fixtures/analyze-rules/README.md` for thresholds, the rule-to-fixture map, and lifecycle (commit-don't-delete) policy.
+- **New test scenario doc** `docs/test-scenarios-codex-calls.md` (~64 KB, ~43 scenarios across 8 groups) covering every Codex calling surface (MCP transport, 9 Skills, codex-reviewer Agent, 14 threads subcommands, hooks, analyzer rules, full E2E). Each scenario has Given/Setup/Command/Expected/Notes plus copy-paste commands. Cost ceiling ~$0.50 on Haiku.
+- **New execution-results doc** `docs/test-execution-results-2026-05-20.md` — Codex-call ledger (27 calls across this session), per-scenario log for Phase A (10/10 PASS hook scenarios) + Phase B (7/7 PASS resume + SILENT detection), error/deficiency/improvement log, synergy measurement table.
+
+### Deployment note
+
+The fixes above edit `install/install.mjs`, `install/hooks.mjs`, and `install/components/skills/codex-resume/SKILL.md`. Users who installed via `npm install -g codex-on-claude` will pick up the new behavior **after the next `npm install -g codex-on-claude@latest`** and a re-run of `codex-on-claude reconfigure` so the auto-on-skill hook command points at the updated binary. Existing installs whose hook command still calls the previous npm-cached path (`~/.nvm/.../lib/node_modules/codex-on-claude/install/install.mjs` or `~/.npm/_npx/<hash>/...`) will keep logging via the old code until either reinstalled or manually synced.
+
 ## [0.3.3] — 2026-05-20
 
 ### Added (UX, patch — no flag / CLI signature changes)

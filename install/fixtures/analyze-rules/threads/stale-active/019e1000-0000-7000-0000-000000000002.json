@@ -1,0 +1,17 @@
+{
+  "threadId": "019e1000-0000-7000-0000-000000000002",
+  "title": "Codex review of telemetry pipeline",
+  "tags": ["review", "telemetry"],
+  "originatingSkill": "codex-review",
+  "originatingCwd": "/fixture/proj-b",
+  "scope": { "files": ["pipeline/ingest.py"], "sandbox": "read-only" },
+  "summaries": [
+    { "kind": "outcome", "text": "Codex suggested 3 minor improvements", "ts": "2026-04-15T14:00:00.000Z" }
+  ],
+  "incidents": [],
+  "fallbackStrategy": "ask",
+  "status": "active",
+  "turnCount": 1,
+  "createdAt": "2026-04-15T14:00:00.000Z",
+  "lastUsedAt": "2026-04-15T14:00:00.000Z"
+}

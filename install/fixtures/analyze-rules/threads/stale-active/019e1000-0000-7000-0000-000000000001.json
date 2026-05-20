@@ -1,0 +1,18 @@
+{
+  "threadId": "019e1000-0000-7000-0000-000000000001",
+  "title": "Review old auth refactor (PR #88)",
+  "tags": ["review", "auth", "pr-88"],
+  "originatingSkill": "codex-review",
+  "originatingCwd": "/fixture/proj-a",
+  "scope": { "files": ["src/auth/index.ts"], "sandbox": "read-only" },
+  "summaries": [
+    { "kind": "goal", "text": "Verify session token storage compliance", "ts": "2026-04-20T10:00:00.000Z" },
+    { "kind": "outcome", "text": "Codex flagged 2 issues", "ts": "2026-04-20T10:05:00.000Z" }
+  ],
+  "incidents": [],
+  "fallbackStrategy": "ask",
+  "status": "active",
+  "turnCount": 2,
+  "createdAt": "2026-04-20T10:00:00.000Z",
+  "lastUsedAt": "2026-04-20T10:05:00.000Z"
+}

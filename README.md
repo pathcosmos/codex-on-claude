@@ -163,7 +163,11 @@ Flag: `--context-policy=direct|summarize|mixed`
 
 Flag: `--improvement-loop=off|manual|auto-on-skill|periodic` (alias: `on-demand → manual`)
 
-Logging is **metadata only** — prompt / response bodies are never written to disk. The hooks we install carry a `_coc.marker = "codex-on-claude:auto-log"` sentinel so `uninstall` / `reconfigure --improvement-loop=manual` remove only the entries we added.
+Logging is **metadata only** — prompt / response bodies are never written to disk. The hooks we install carry a `_coc.marker = "codex-on-claude:auto-log"` sentinel so `uninstall` / `reconfigure --improvement-loop=manual` remove only the entries we added (hook-level filter as of 0.3.4 — user hooks that happen to coexist in the same group are preserved).
+
+**Runtime config drift (v0.3.4+)**: if you manually edit `~/.claude/codex-on-claude/config.json` to set `improvementLoop` to `off` or `manual` without re-running `reconfigure`, the installed hook now respects the new value on the next call (no more silent telemetry from a stale hook). Corrupt or missing config fail-opens so existing installs don't break unexpectedly.
+
+**Hook payload extraction (v0.3.4+)**: `threadId` is now correctly extracted from Claude Code 2.1.x's PostToolUse payload (where `tool_response` is a JSON-encoded string), and `elapsedMs` is populated from `duration_ms`. Previously every auto-hook log entry had `threadId: null`, which silently broke analyzer rules that join logs to threads.
 
 ### 4. threads (single, v0.2+)
 
@@ -471,6 +475,41 @@ codex-on-claude reconfigure
 
 The final review screen lets you `Edit again` before saving.
 
+### `codex-on-claude threads latest --format=id` includes the CLI banner / ANSI escape codes
+
+Fixed in v0.3.4 — the top-level `codex-on-claude vX.Y.Z` banner now goes to **stderr**, so stdout for `--format=id|json` data subcommands is clean:
+
+```sh
+codex-on-claude threads latest --format=id            # stdout: bare UUID (or empty)
+codex-on-claude threads latest --format=id 2>/dev/null  # silences banner entirely
+```
+
+If you're stuck on ≤ 0.3.3 and need to scrape stdout, strip ANSI + grep UUIDs:
+
+```sh
+codex-on-claude threads latest --format=id \
+  | sed 's/\x1b\[[0-9;]*m//g' \
+  | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+  | head -1
+```
+
+### Hook keeps logging after I set `improvementLoop=off` in `config.json` (without reconfigure)
+
+Fixed in v0.3.4 — the auto-on-skill hook (`codex-on-claude log --from-stdin`) now reads `~/.claude/codex-on-claude/config.json` on each call and silently no-ops when `improvementLoop` is `off` or `manual`. No `reconfigure` step required for the gate to take effect.
+
+If your hook command path is stale (still points at the npm-cached binary from before the fix), reinstall + reconfigure to refresh:
+
+```sh
+npm install -g codex-on-claude@latest
+codex-on-claude reconfigure --yes
+```
+
+Manual `/codex-log` invocations are unaffected by the guard — explicit logging always works.
+
+### Mixed-ownership PostToolUse group lost my user hook on uninstall (≤ 0.3.3)
+
+Fixed in v0.3.4. If you manually nested a `_coc.marker` entry inside a group also containing your own hook, the previous code removed the whole group via `.some()` semantics. The new `stripOursFromGroups` operates at the hook level — your hooks are preserved, only marked entries are removed. The installer never produces mixed groups itself; this protects you only against manual `settings.json` edits.
+
 ---
 
 ## Contributing / license
@@ -485,3 +524,5 @@ The final review screen lets you `Edit again` before saving.
 - [`CHANGELOG.md`](CHANGELOG.md) — release notes
 - [`docs/implementation-log.md`](docs/implementation-log.md) — English summary of the original 2026-05-19 build session ([Korean original](docs/ko/implementation-log-2026-05-19.md))
 - [`docs/test-report-2026-05-20.md`](docs/test-report-2026-05-20.md) — English summary of the 2026-05-20 verification run ([Korean original](docs/ko/test-report-2026-05-20.md))
+- [`docs/test-scenarios-codex-calls.md`](docs/test-scenarios-codex-calls.md) — 0.3.3-era comprehensive test scenario document (~43 scenarios × 8 groups covering MCP transport, 9 Skills, codex-reviewer Agent, 14 threads subcommands, hooks, analyzer rules, full E2E). Each scenario has Given/Setup/Command/Expected/Notes plus deterministic fixtures at `install/fixtures/analyze-rules/`.
+- [`docs/test-execution-results-2026-05-20.md`](docs/test-execution-results-2026-05-20.md) — execution log of the 0.3.4 cycle: Phase A (hooks, 10/10 PASS), Phase B (resume + SILENT_NEW_SESSION, 7/7 PASS after malformed-id correction), Codex-call ledger (27 calls across the session), bug discovery via meta-audit, synergy measurement (findings/$, findings/min, PRE/POST ratio).

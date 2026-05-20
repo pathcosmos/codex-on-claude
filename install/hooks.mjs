@@ -44,14 +44,28 @@ function isOursGroup(group) {
   return Array.isArray(group?.hooks) && group.hooks.some((h) => h?._coc?.marker === MARKER);
 }
 
+// Hook-level filter: returns a NEW groups array with our marked hooks removed.
+// A group whose hooks array becomes empty after filtering is dropped entirely.
+// User-owned hooks nested in the same group as our marked hooks are preserved.
+function stripOursFromGroups(groups) {
+  return groups
+    .map((group) => {
+      if (!Array.isArray(group?.hooks)) return group;
+      const hooks = group.hooks.filter((h) => h?._coc?.marker !== MARKER);
+      return hooks.length ? { ...group, hooks } : null;
+    })
+    .filter(Boolean);
+}
+
 export async function install({ command }) {
   if (!command) throw new Error("install({command}) requires a non-empty command");
   const settings = await readSettings();
   settings.hooks = settings.hooks || {};
   settings.hooks.PostToolUse = settings.hooks.PostToolUse || [];
 
-  // Strip any prior coc groups so we don't accumulate duplicates
-  settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter((g) => !isOursGroup(g));
+  // Strip only our marked hook entries (hook-level filter — preserves user hooks
+  // even when they coexist in the same group as one of ours).
+  settings.hooks.PostToolUse = stripOursFromGroups(settings.hooks.PostToolUse);
 
   settings.hooks.PostToolUse.push(makeHookGroup("mcp__codex__codex", command));
   settings.hooks.PostToolUse.push(makeHookGroup("mcp__codex__codex-reply", command));
@@ -65,7 +79,7 @@ export async function remove() {
   const settings = await readSettings();
   const before = settings?.hooks?.PostToolUse?.length || 0;
   if (Array.isArray(settings?.hooks?.PostToolUse)) {
-    settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter((g) => !isOursGroup(g));
+    settings.hooks.PostToolUse = stripOursFromGroups(settings.hooks.PostToolUse);
     if (!settings.hooks.PostToolUse.length) delete settings.hooks.PostToolUse;
     if (settings.hooks && !Object.keys(settings.hooks).length) delete settings.hooks;
   }

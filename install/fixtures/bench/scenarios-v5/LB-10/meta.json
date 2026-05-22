@@ -1,0 +1,8 @@
+{
+  "id": "LB-10",
+  "template": "LLM",
+  "category": "Type inference",
+  "hypothesis_target": "P7_subagent_risk",
+  "generated_at": "2026-05-21T00:35:29.967Z",
+  "generator": "B"
+}

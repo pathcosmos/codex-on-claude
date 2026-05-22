@@ -1,0 +1,14 @@
+{
+  "id": "T02-07",
+  "template": "T02",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P2_adversarial",
+  "params": {
+    "id": "T02-07",
+    "domain": "cache-eviction-policy",
+    "subtle_bug": "lru_recency_not_updated",
+    "lang": "py",
+    "decoys": 1
+  },
+  "generated_at": "2026-05-20T14:30:11.149Z"
+}

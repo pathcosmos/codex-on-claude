@@ -1,0 +1,1 @@
+String x = name.toLowerCase(); // Turkish locale: I → i-without-dot, breaks ASCII assumption

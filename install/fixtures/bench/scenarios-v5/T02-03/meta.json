@@ -1,0 +1,14 @@
+{
+  "id": "T02-03",
+  "template": "T02",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P2_adversarial",
+  "params": {
+    "id": "T02-03",
+    "domain": "concurrent-counter",
+    "subtle_bug": "lost_update",
+    "lang": "go",
+    "decoys": 1
+  },
+  "generated_at": "2026-05-20T14:30:11.147Z"
+}

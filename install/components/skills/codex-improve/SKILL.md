@@ -7,6 +7,11 @@ description: Use to apply or reject a specific improvement candidate produced by
 
 Take one candidate from `/codex-analyze` and **act on it with explicit user consent**. Records the decision so the same candidate isn't re-proposed every cycle.
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+This Skill operates on local state (config + improvement decisions) and is allowed in every mode. It does not invoke Codex directly. When applying a candidate that switches `--usage-mode` (e.g. from a drift candidate), confirm with the user before running `codex-on-claude reconfigure`.
+
 ## Inputs
 - Candidate ID or category (e.g. `1`, `token-efficiency`, `sandbox-downgrade`)
 - The user's `apply | reject | skip` decision

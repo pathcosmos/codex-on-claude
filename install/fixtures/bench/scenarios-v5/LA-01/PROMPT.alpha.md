@@ -1,0 +1,1 @@
+Review this Node.js code for architectural issues, callback patterns, and error handling. Identify readability and maintainability problems. Suggest refactoring approaches to modernize the code. Return JSON with: issues, severity_level, suggested_refactoring.

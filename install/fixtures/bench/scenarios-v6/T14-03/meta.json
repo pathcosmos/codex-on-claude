@@ -1,0 +1,15 @@
+{
+  "id": "T14-03",
+  "template": "T14",
+  "category": "Multi-doc synthesis",
+  "hypothesis_target": "P5_catastrophe_dial",
+  "params": {
+    "id": "T14-03",
+    "domain": "policy-trees",
+    "n_files": 6,
+    "implicit_required": 2,
+    "alpha_target_pct": "65",
+    "json_strict": 0.6
+  },
+  "generated_at": "2026-05-21T07:58:47.943Z"
+}

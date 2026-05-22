@@ -1,0 +1,28 @@
+{
+  "scenario": "T15-01",
+  "notes": "T15 α-fail-dial — deque-basic, explicit=3, hidden=0, α=100%",
+  "criteria": [
+    {
+      "name": "tests_pass_json",
+      "type": "final_json_field",
+      "args": {
+        "field": "tests_pass",
+        "equals": true
+      }
+    },
+    {
+      "name": "tests_added_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "tests_added"
+      }
+    },
+    {
+      "name": "mentions_edge",
+      "type": "contains_text",
+      "args": {
+        "needle": "edge"
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "T09-10",
+  "template": "T09",
+  "category": "Concurrency / race condition",
+  "hypothesis_target": "P3_reasoning_high",
+  "params": {
+    "id": "T09-10",
+    "bug_type": "shared-mutable-state",
+    "lang": "rs",
+    "subtlety": "low"
+  },
+  "generated_at": "2026-05-21T00:00:58.798Z"
+}

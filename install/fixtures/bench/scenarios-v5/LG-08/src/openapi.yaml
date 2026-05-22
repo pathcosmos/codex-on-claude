@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info:
+  title: Orders API
+  version: 2024-11-01
+paths:
+  /orders/{id}:
+    get:
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404': { description: missing }
+components:
+  schemas:
+    Order:
+      type: object
+      required: [id, status, total]
+      properties:
+        id: { type: string }
+        status:
+          type: string
+          enum: [pending, paid, refunded]
+        total:
+          type: integer
+          description: cents
+        createdAt:
+          type: string
+          format: date

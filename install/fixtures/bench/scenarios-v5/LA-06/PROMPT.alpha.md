@@ -1,0 +1,1 @@
+Analyze this code for algorithmic performance issues. Identify time complexity class for each function. Calculate execution impact for 1 million elements. Suggest O(n) or O(n log n) alternatives using Set and Map. Return JSON with: current_complexity, issue, impact_1m_elements, optimized_code.

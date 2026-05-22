@@ -1,0 +1,15 @@
+{
+  "id": "T03-03",
+  "template": "T03",
+  "category": "Multi-doc synthesis",
+  "hypothesis_target": "P5_catastrophe",
+  "params": {
+    "id": "T03-03",
+    "domain": "api-endpoints",
+    "n_files": 8,
+    "chain": 5,
+    "strict": 0.8,
+    "subagent": false
+  },
+  "generated_at": "2026-05-20T14:30:11.152Z"
+}

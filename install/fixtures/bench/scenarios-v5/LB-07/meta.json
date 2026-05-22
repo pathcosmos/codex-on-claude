@@ -1,0 +1,8 @@
+{
+  "id": "LB-07",
+  "template": "LLM",
+  "category": "Concurrency",
+  "hypothesis_target": "P2_adversarial",
+  "generated_at": "2026-05-21T00:35:29.965Z",
+  "generator": "B"
+}

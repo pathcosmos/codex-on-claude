@@ -1,0 +1,47 @@
+{
+  "scenario": "T11-02",
+  "notes": "T11 α-fail-dial — cache-lru, target=90%",
+  "criteria": [
+    {
+      "name": "json_sections_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "sections"
+      }
+    },
+    {
+      "name": "word_count_max",
+      "type": "word_count_max",
+      "args": {
+        "max": 700
+      }
+    },
+    {
+      "name": "has_description",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "Description"
+        ]
+      }
+    },
+    {
+      "name": "has_how_to_invoke",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "How to invoke"
+        ]
+      }
+    },
+    {
+      "name": "has_guardrails",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "Guardrails"
+        ]
+      }
+    }
+  ]
+}

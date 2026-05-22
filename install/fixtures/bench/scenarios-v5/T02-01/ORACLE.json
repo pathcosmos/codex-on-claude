@@ -1,0 +1,47 @@
+{
+  "scenario": "T02-01",
+  "notes": "T02 adversarial — auth-token-comparison bug=timing_attack, decoys=2",
+  "criteria": [
+    {
+      "name": "category_matches",
+      "type": "final_json_field",
+      "args": {
+        "field": "category",
+        "equals": "timing_attack"
+      }
+    },
+    {
+      "name": "critical_issue_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "critical_issue"
+      }
+    },
+    {
+      "name": "mentions_bug_class",
+      "type": "contains_text",
+      "args": {
+        "needle": "timing"
+      }
+    },
+    {
+      "name": "line_hint_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "line_hint"
+      }
+    },
+    {
+      "name": "beta_called_codex",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

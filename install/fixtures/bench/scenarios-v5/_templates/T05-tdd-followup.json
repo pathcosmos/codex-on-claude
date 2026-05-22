@@ -1,0 +1,19 @@
+{
+  "id": "T05",
+  "name": "tdd-followup",
+  "category": "TDD / Test generation",
+  "hypothesis_target": "P4_tdd_followup",
+  "description": "TDD: failing test + impl needed + edge cases. β-arm: /codex-fix → /codex-followup chain.",
+  "param_combos": [
+    { "id": "T05-01", "module": "deque", "lang": "js", "edge_cases": 3 },
+    { "id": "T05-02", "module": "binary-heap", "lang": "py", "edge_cases": 4 },
+    { "id": "T05-03", "module": "trie", "lang": "ts", "edge_cases": 3 },
+    { "id": "T05-04", "module": "skiplist", "lang": "py", "edge_cases": 4 },
+    { "id": "T05-05", "module": "bloom-filter", "lang": "js", "edge_cases": 3 },
+    { "id": "T05-06", "module": "circular-buffer", "lang": "go", "edge_cases": 4 },
+    { "id": "T05-07", "module": "fraction-arithmetic", "lang": "py", "edge_cases": 5 },
+    { "id": "T05-08", "module": "ip-cidr-parser", "lang": "rs", "edge_cases": 4 },
+    { "id": "T05-09", "module": "date-range", "lang": "ts", "edge_cases": 3 },
+    { "id": "T05-10", "module": "currency-converter", "lang": "py", "edge_cases": 4 }
+  ]
+}

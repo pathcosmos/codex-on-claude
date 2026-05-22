@@ -1,0 +1,8 @@
+{
+  "id": "LG-03",
+  "template": "LLM",
+  "category": "Cryptography",
+  "hypothesis_target": "P3_reasoning_high",
+  "generated_at": "2026-05-21T00:38:51.143Z",
+  "generator": "G"
+}

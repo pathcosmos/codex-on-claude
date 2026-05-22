@@ -1,0 +1,16 @@
+{
+  "id": "RS03",
+  "template": "RS",
+  "category": "Real codebase review (strict ORACLE)",
+  "hypothesis_target": "P2_real_strict",
+  "source": {
+    "path": "/Volumes/minim42tbtmm/pathcosmos/codex-on-claude/install/threads.mjs",
+    "focus": "thread catalog state machine"
+  },
+  "required_issues": [
+    "fallback_state_orphan",
+    "turn_count_race",
+    "incident_growth"
+  ],
+  "test": "does strict ORACLE produce partial-fail (sweet spot entry)?"
+}

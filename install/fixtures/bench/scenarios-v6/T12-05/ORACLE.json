@@ -1,0 +1,47 @@
+{
+  "scenario": "T12-05",
+  "notes": "T12 α-fail-dial — bug=recency_not_refreshed_on_set, decoys=4, α target=30%",
+  "criteria": [
+    {
+      "name": "category_matches",
+      "type": "final_json_field",
+      "args": {
+        "field": "category",
+        "equals": "recency_not_refreshed_on_set"
+      }
+    },
+    {
+      "name": "critical_issue_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "critical_issue"
+      }
+    },
+    {
+      "name": "line_hint_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "line_hint"
+      }
+    },
+    {
+      "name": "mentions_bug_class",
+      "type": "contains_text",
+      "args": {
+        "needle": "recency"
+      }
+    },
+    {
+      "name": "beta_codex_called",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

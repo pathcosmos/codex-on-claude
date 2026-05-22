@@ -1,0 +1,14 @@
+{
+  "id": "T02-08",
+  "template": "T02",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P2_adversarial",
+  "params": {
+    "id": "T02-08",
+    "domain": "retry-backoff",
+    "subtle_bug": "jitter_seeded_deterministic",
+    "lang": "go",
+    "decoys": 2
+  },
+  "generated_at": "2026-05-20T14:30:11.149Z"
+}

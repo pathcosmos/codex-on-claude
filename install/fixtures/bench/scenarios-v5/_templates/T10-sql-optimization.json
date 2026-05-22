@@ -1,0 +1,19 @@
+{
+  "id": "T10",
+  "name": "sql-optimization",
+  "category": "SQL query optimization",
+  "hypothesis_target": "NEW",
+  "description": "Identify SQL anti-patterns and suggest optimizations. Tests Codex domain knowledge on DBMS-specific issues.",
+  "param_combos": [
+    { "id": "T10-01", "antipattern": "n-plus-one", "dialect": "postgres", "tables": 2 },
+    { "id": "T10-02", "antipattern": "missing-index", "dialect": "mysql", "tables": 3 },
+    { "id": "T10-03", "antipattern": "implicit-cast", "dialect": "postgres", "tables": 2 },
+    { "id": "T10-04", "antipattern": "cross-join-cartesian", "dialect": "mysql", "tables": 3 },
+    { "id": "T10-05", "antipattern": "select-star-large-table", "dialect": "postgres", "tables": 1 },
+    { "id": "T10-06", "antipattern": "function-on-indexed-column", "dialect": "mysql", "tables": 2 },
+    { "id": "T10-07", "antipattern": "or-prevents-index", "dialect": "postgres", "tables": 2 },
+    { "id": "T10-08", "antipattern": "correlated-subquery", "dialect": "mysql", "tables": 3 },
+    { "id": "T10-09", "antipattern": "in-subquery-large-set", "dialect": "postgres", "tables": 2 },
+    { "id": "T10-10", "antipattern": "missing-limit", "dialect": "mysql", "tables": 1 }
+  ]
+}

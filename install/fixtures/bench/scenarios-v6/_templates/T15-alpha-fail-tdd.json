@@ -1,0 +1,15 @@
+{
+  "id": "T15",
+  "name": "alpha-fail-tdd",
+  "category": "TDD edge cases",
+  "hypothesis_target": "P4_tdd_followup_revised",
+  "description": "TDD task with α partial-fail dial via edge case implicitness.",
+  "design_principle": "Spec 의 명시된 edge case 수 vs ORACLE 이 검사하는 hidden edge case 수 의 차이가 다이얼.",
+  "param_combos": [
+    { "id": "T15-01", "module": "deque-basic", "explicit_edges": 3, "hidden_edges": 0, "alpha_target_pct": "100" },
+    { "id": "T15-02", "module": "binary-heap", "explicit_edges": 2, "hidden_edges": 1, "alpha_target_pct": "85" },
+    { "id": "T15-03", "module": "trie-w-prefix", "explicit_edges": 2, "hidden_edges": 2, "alpha_target_pct": "65" },
+    { "id": "T15-04", "module": "skiplist-concurrent", "explicit_edges": 1, "hidden_edges": 3, "alpha_target_pct": "45" },
+    { "id": "T15-05", "module": "fraction-arithmetic", "explicit_edges": 1, "hidden_edges": 4, "alpha_target_pct": "30" }
+  ]
+}

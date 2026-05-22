@@ -1,0 +1,33 @@
+{
+  "scenario": "T08-03",
+  "notes": "T08 i18n — currency-locale/ts, 3 expected",
+  "criteria": [
+    {
+      "name": "violations_min",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "violations",
+        "min": 1
+      }
+    },
+    {
+      "name": "mentions_issue_type",
+      "type": "contains_text",
+      "args": {
+        "needle": "currency"
+      }
+    },
+    {
+      "name": "beta_called_codex",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

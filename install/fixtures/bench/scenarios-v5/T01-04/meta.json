@@ -1,0 +1,14 @@
+{
+  "id": "T01-04",
+  "template": "T01",
+  "category": "Documentation authoring",
+  "hypothesis_target": "P1_self_review",
+  "params": {
+    "id": "T01-04",
+    "module": "event-bus",
+    "lang": "rs",
+    "loc": 100,
+    "sections": 6
+  },
+  "generated_at": "2026-05-20T14:30:11.143Z"
+}

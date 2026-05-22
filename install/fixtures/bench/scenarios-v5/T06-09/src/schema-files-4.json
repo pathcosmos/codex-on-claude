@@ -1,0 +1,365 @@
+{
+  "name": "schema-4",
+  "fields": [
+    {
+      "name": "field-0",
+      "type": "string"
+    },
+    {
+      "name": "field-1",
+      "type": "number"
+    },
+    {
+      "name": "field-2",
+      "type": "bool"
+    },
+    {
+      "name": "field-3",
+      "type": "string"
+    },
+    {
+      "name": "field-4",
+      "type": "number"
+    },
+    {
+      "name": "field-5",
+      "type": "bool"
+    },
+    {
+      "name": "field-6",
+      "type": "string"
+    },
+    {
+      "name": "field-7",
+      "type": "number"
+    },
+    {
+      "name": "field-8",
+      "type": "bool"
+    },
+    {
+      "name": "field-9",
+      "type": "string"
+    },
+    {
+      "name": "field-10",
+      "type": "number"
+    },
+    {
+      "name": "field-11",
+      "type": "bool"
+    },
+    {
+      "name": "field-12",
+      "type": "string"
+    },
+    {
+      "name": "field-13",
+      "type": "number"
+    },
+    {
+      "name": "field-14",
+      "type": "bool"
+    },
+    {
+      "name": "field-15",
+      "type": "string"
+    },
+    {
+      "name": "field-16",
+      "type": "number"
+    },
+    {
+      "name": "field-17",
+      "type": "bool"
+    },
+    {
+      "name": "field-18",
+      "type": "string"
+    },
+    {
+      "name": "field-19",
+      "type": "number"
+    },
+    {
+      "name": "field-20",
+      "type": "bool"
+    },
+    {
+      "name": "field-21",
+      "type": "string"
+    },
+    {
+      "name": "field-22",
+      "type": "number"
+    },
+    {
+      "name": "field-23",
+      "type": "bool"
+    },
+    {
+      "name": "field-24",
+      "type": "string"
+    },
+    {
+      "name": "field-25",
+      "type": "number"
+    },
+    {
+      "name": "field-26",
+      "type": "bool"
+    },
+    {
+      "name": "field-27",
+      "type": "string"
+    },
+    {
+      "name": "field-28",
+      "type": "number"
+    },
+    {
+      "name": "field-29",
+      "type": "bool"
+    },
+    {
+      "name": "field-30",
+      "type": "string"
+    },
+    {
+      "name": "field-31",
+      "type": "number"
+    },
+    {
+      "name": "field-32",
+      "type": "bool"
+    },
+    {
+      "name": "field-33",
+      "type": "string"
+    },
+    {
+      "name": "field-34",
+      "type": "number"
+    },
+    {
+      "name": "field-35",
+      "type": "bool"
+    },
+    {
+      "name": "field-36",
+      "type": "string"
+    },
+    {
+      "name": "field-37",
+      "type": "number"
+    },
+    {
+      "name": "field-38",
+      "type": "bool"
+    },
+    {
+      "name": "field-39",
+      "type": "string"
+    },
+    {
+      "name": "field-40",
+      "type": "number"
+    },
+    {
+      "name": "field-41",
+      "type": "bool"
+    },
+    {
+      "name": "field-42",
+      "type": "string"
+    },
+    {
+      "name": "field-43",
+      "type": "number"
+    },
+    {
+      "name": "field-44",
+      "type": "bool"
+    },
+    {
+      "name": "field-45",
+      "type": "string"
+    },
+    {
+      "name": "field-46",
+      "type": "number"
+    },
+    {
+      "name": "field-47",
+      "type": "bool"
+    },
+    {
+      "name": "field-48",
+      "type": "string"
+    },
+    {
+      "name": "field-49",
+      "type": "number"
+    },
+    {
+      "name": "field-50",
+      "type": "bool"
+    },
+    {
+      "name": "field-51",
+      "type": "string"
+    },
+    {
+      "name": "field-52",
+      "type": "number"
+    },
+    {
+      "name": "field-53",
+      "type": "bool"
+    },
+    {
+      "name": "field-54",
+      "type": "string"
+    },
+    {
+      "name": "field-55",
+      "type": "number"
+    },
+    {
+      "name": "field-56",
+      "type": "bool"
+    },
+    {
+      "name": "field-57",
+      "type": "string"
+    },
+    {
+      "name": "field-58",
+      "type": "number"
+    },
+    {
+      "name": "field-59",
+      "type": "bool"
+    },
+    {
+      "name": "field-60",
+      "type": "string"
+    },
+    {
+      "name": "field-61",
+      "type": "number"
+    },
+    {
+      "name": "field-62",
+      "type": "bool"
+    },
+    {
+      "name": "field-63",
+      "type": "string"
+    },
+    {
+      "name": "field-64",
+      "type": "number"
+    },
+    {
+      "name": "field-65",
+      "type": "bool"
+    },
+    {
+      "name": "field-66",
+      "type": "string"
+    },
+    {
+      "name": "field-67",
+      "type": "number"
+    },
+    {
+      "name": "field-68",
+      "type": "bool"
+    },
+    {
+      "name": "field-69",
+      "type": "string"
+    },
+    {
+      "name": "field-70",
+      "type": "number"
+    },
+    {
+      "name": "field-71",
+      "type": "bool"
+    },
+    {
+      "name": "field-72",
+      "type": "string"
+    },
+    {
+      "name": "field-73",
+      "type": "number"
+    },
+    {
+      "name": "field-74",
+      "type": "bool"
+    },
+    {
+      "name": "field-75",
+      "type": "string"
+    },
+    {
+      "name": "field-76",
+      "type": "number"
+    },
+    {
+      "name": "field-77",
+      "type": "bool"
+    },
+    {
+      "name": "field-78",
+      "type": "string"
+    },
+    {
+      "name": "field-79",
+      "type": "number"
+    },
+    {
+      "name": "field-80",
+      "type": "bool"
+    },
+    {
+      "name": "field-81",
+      "type": "string"
+    },
+    {
+      "name": "field-82",
+      "type": "number"
+    },
+    {
+      "name": "field-83",
+      "type": "bool"
+    },
+    {
+      "name": "field-84",
+      "type": "string"
+    },
+    {
+      "name": "field-85",
+      "type": "number"
+    },
+    {
+      "name": "field-86",
+      "type": "bool"
+    },
+    {
+      "name": "field-87",
+      "type": "string"
+    },
+    {
+      "name": "field-88",
+      "type": "number"
+    },
+    {
+      "name": "field-89",
+      "type": "bool"
+    }
+  ]
+}

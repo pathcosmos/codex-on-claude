@@ -24,8 +24,22 @@ async function readJson(p, fallback = null) {
   try { return JSON.parse(await fs.readFile(p, "utf8")); } catch { return fallback; }
 }
 async function writeJson(p, data) {
-  await fs.mkdir(path.dirname(p), { recursive: true });
-  await fs.writeFile(p, JSON.stringify(data, null, 2) + "\n");
+  // H2 fix: atomic write (temp + rename) for thread catalog files so concurrent readers
+  // (e.g. analyzer / status) never observe a torn JSON document.
+  // M2 fix: chmod parent dir to 0700 best-effort so thread catalog stays user-only even when
+  // the catalog directory was created outside applyInstallation's ensureDir().
+  // A3 fix (final pre-ship): clean up temp on rename failure to avoid `*.tmp-PID-TS` leaks.
+  const dir = path.dirname(p);
+  await fs.mkdir(dir, { recursive: true });
+  try { await fs.chmod(dir, 0o700); } catch { /* best-effort */ }
+  const tmp = `${p}.tmp-${process.pid}-${Date.now()}`;
+  await fs.writeFile(tmp, JSON.stringify(data, null, 2) + "\n");
+  try {
+    await fs.rename(tmp, p);
+  } catch (e) {
+    await fs.rm(tmp, { force: true }).catch(() => {});
+    throw e;
+  }
 }
 
 function isValidThreadId(id) {

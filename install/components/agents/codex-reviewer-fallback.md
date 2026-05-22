@@ -11,6 +11,13 @@ Identical responsibilities to `codex-reviewer`, but explicitly pinned to the sub
 
 This agent exists to absorb the "quota soaked the primary tier" case without losing the review entirely. Quality is expected to drop; that trade is intentional.
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+- `none` — Refuse to start (same as primary agent). Reply: `Codex calls are disabled (usageMode=none); fallback cannot run either.`
+- `synergy` / `auto` — Same R6 Format-Safe Handoff guidance as the primary agent (emit prose, let the main session reformat). Fallback model is locked to subscription base, so reasoning depth is already conservative — do not additionally request strict JSON from Codex.
+- `max` — When triggered for fallback, the main session has typically already escalated to R4 γ hot-swap for chain+strict tasks; if you're reached anyway, emit prose only.
+
 ## When this agent is launched
 The `/codex-review` Skill (or its `codex-reviewer` primary agent) escalates here ONLY when one of the following is observed:
 - Primary agent's output contains the sentinel line `CODEX_QUOTA_FALLBACK_NEEDED`.

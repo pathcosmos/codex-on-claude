@@ -1,0 +1,15 @@
+{
+  "id": "R01",
+  "template": "R",
+  "category": "Code review",
+  "hypothesis_target": "NEW_real_codebase",
+  "source": {
+    "path": "/Volumes/minim42tbtmm/pathcosmos/codex-on-claude/install/hooks.mjs",
+    "focus": "hook merging + mixed-ownership safety"
+  },
+  "params": {
+    "task": "review",
+    "focus": "hook merging + mixed-ownership safety"
+  },
+  "generated_at": "2026-05-21T10:12:30.556Z"
+}

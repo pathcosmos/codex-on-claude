@@ -1,0 +1,13 @@
+{
+  "id": "T05-07",
+  "template": "T05",
+  "category": "TDD / Test generation",
+  "hypothesis_target": "P4_tdd_followup",
+  "params": {
+    "id": "T05-07",
+    "module": "fraction-arithmetic",
+    "lang": "py",
+    "edge_cases": 5
+  },
+  "generated_at": "2026-05-20T14:30:11.164Z"
+}

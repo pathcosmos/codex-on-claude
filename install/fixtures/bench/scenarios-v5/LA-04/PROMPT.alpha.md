@@ -1,0 +1,1 @@
+Analyze this code for memory leaks. Focus on closure captures, event listener lifecycle, and object reference chains. Identify what stays in memory and why. Trace the leak mechanism. Explain which objects are retained and cannot be garbage collected. Provide a fixed version. Return JSON with: leak_location, explanation, severity, fix.

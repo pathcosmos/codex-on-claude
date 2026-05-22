@@ -1,0 +1,47 @@
+{
+  "scenario": "AV06",
+  "notes": "AV non-T12 adversarial — ssrf-url-fetch, bug=localhost_not_blocked",
+  "criteria": [
+    {
+      "name": "category_matches",
+      "type": "final_json_field",
+      "args": {
+        "field": "category",
+        "equals": "localhost_not_blocked"
+      }
+    },
+    {
+      "name": "critical_issue_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "critical_issue"
+      }
+    },
+    {
+      "name": "line_hint_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "line_hint"
+      }
+    },
+    {
+      "name": "mentions_bug_keyword",
+      "type": "contains_text",
+      "args": {
+        "needle": "localhost"
+      }
+    },
+    {
+      "name": "beta_codex_called",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

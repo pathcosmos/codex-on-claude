@@ -1,0 +1,13 @@
+{
+  "id": "T08-09",
+  "template": "T08",
+  "category": "Internationalization (i18n)",
+  "hypothesis_target": "NEW",
+  "params": {
+    "id": "T08-09",
+    "issue": "encoding-assumption",
+    "lang": "go",
+    "n_violations": 3
+  },
+  "generated_at": "2026-05-21T00:00:58.794Z"
+}

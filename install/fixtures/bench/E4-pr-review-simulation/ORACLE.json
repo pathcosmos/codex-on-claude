@@ -1,0 +1,15 @@
+{
+  "scenario": "E4-pr-review-simulation",
+  "notes": "Diff has 2+ subtle issues: (a) recency not refreshed on update-existing path, (b) stats hitRate divide-by-zero on first call. β: 2-round Codex review.",
+  "criteria": [
+    { "name": "issues_found_min_2", "type": "final_json_array_min", "args": { "field": "issues_found", "min": 2 } },
+    { "name": "merge_recommendation_in_set", "type": "final_json_field", "args": { "field": "merge_recommendation", "in": ["block", "approve-with-changes", "approve"] } },
+    { "name": "mentions_lru_or_recency", "type": "contains_text", "args": { "needle": "recency" } },
+    { "name": "mentions_hit_rate_or_divide", "type": "contains_text", "args": { "needle": "divide" } },
+    { "name": "beta_two_codex_calls", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": { "name": "mcp__codex__codex", "min": 2 }
+    } }
+  ]
+}

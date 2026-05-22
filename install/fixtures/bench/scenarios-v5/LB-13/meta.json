@@ -1,0 +1,8 @@
+{
+  "id": "LB-13",
+  "template": "LLM",
+  "category": "Hard reasoning",
+  "hypothesis_target": "P5_catastrophe",
+  "generated_at": "2026-05-21T00:35:29.969Z",
+  "generator": "B"
+}

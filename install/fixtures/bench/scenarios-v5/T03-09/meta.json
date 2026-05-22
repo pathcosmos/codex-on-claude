@@ -1,0 +1,15 @@
+{
+  "id": "T03-09",
+  "template": "T03",
+  "category": "Multi-doc synthesis",
+  "hypothesis_target": "P5_catastrophe",
+  "params": {
+    "id": "T03-09",
+    "domain": "test-suites",
+    "n_files": 6,
+    "chain": 4,
+    "strict": 0.7,
+    "subagent": false
+  },
+  "generated_at": "2026-05-20T14:30:11.156Z"
+}

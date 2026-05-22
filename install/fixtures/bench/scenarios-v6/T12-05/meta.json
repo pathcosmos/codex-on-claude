@@ -1,0 +1,14 @@
+{
+  "id": "T12-05",
+  "template": "T12",
+  "category": "Code review (subtle bugs)",
+  "hypothesis_target": "P2_adversarial_revised",
+  "params": {
+    "id": "T12-05",
+    "domain": "lru-cache-recency",
+    "subtle_bug": "recency_not_refreshed_on_set",
+    "alpha_target_pct": "30",
+    "decoys": 4
+  },
+  "generated_at": "2026-05-21T07:58:47.939Z"
+}

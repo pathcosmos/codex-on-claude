@@ -1,0 +1,14 @@
+{
+  "id": "T15-02",
+  "template": "T15",
+  "category": "TDD edge cases",
+  "hypothesis_target": "P4_tdd_followup_revised",
+  "params": {
+    "id": "T15-02",
+    "module": "binary-heap",
+    "explicit_edges": 2,
+    "hidden_edges": 1,
+    "alpha_target_pct": "85"
+  },
+  "generated_at": "2026-05-21T07:58:47.947Z"
+}

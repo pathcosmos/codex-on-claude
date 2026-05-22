@@ -1,0 +1,8 @@
+{
+  "id": "LG-09",
+  "template": "LLM",
+  "category": "Security audit",
+  "hypothesis_target": "P2_adversarial",
+  "generated_at": "2026-05-21T00:38:51.147Z",
+  "generator": "G"
+}

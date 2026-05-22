@@ -1,0 +1,16 @@
+{
+  "scenario": "D2-reasoning-depth",
+  "notes": "Hard constraint puzzle (6 queens on 8×8 + 4 stacked constraints). Tests whether Codex `reasoning=high` finds a valid solution α may miss.",
+  "criteria": [
+    { "name": "queens_field_has_6", "type": "final_json_array_min", "args": { "field": "queens", "min": 6 } },
+    { "name": "queens_field_at_most_6", "type": "final_json_array_max", "args": { "field": "queens", "max": 6 } },
+    { "name": "all_constraints_pass", "type": "tests_pass" },
+    { "name": "mentions_parity", "type": "contains_text", "args": { "needle": "parity" } },
+    { "name": "mentions_forbidden_or_corner", "type": "contains_text", "args": { "needle": "forbidden" } },
+    { "name": "beta_called_codex", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": { "name": "mcp__codex__codex", "min": 1 }
+    } }
+  ]
+}

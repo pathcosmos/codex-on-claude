@@ -1,0 +1,21 @@
+{
+  "scenario": "E1-bug-triage-pipeline",
+  "notes": "Off-by-one bug in slidingAverage (uses < instead of <=). β chain: /codex-review → /codex-fix → /codex-followup. α: direct fix.",
+  "criteria": [
+    { "name": "tests_pass", "type": "tests_pass" },
+    { "name": "tests_pass_json_field", "type": "final_json_field", "args": { "field": "tests_pass", "equals": true } },
+    { "name": "bug_summary_present", "type": "final_json_field", "args": { "field": "bug_summary" } },
+    { "name": "files_changed_min", "type": "final_json_array_min", "args": { "field": "files_changed", "min": 1 } },
+    { "name": "mentions_off_by_one_or_index", "type": "contains_text", "args": { "needle": "off" } },
+    { "name": "beta_chain_invoked", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "distinct_skills_invoked_min",
+        "inner_args": { "min": 2, "prefix_filter": "mcp__codex__" }
+    } },
+    { "name": "beta_codex_sequence", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_sequence_matches",
+        "inner_args": { "sequence": ["mcp__codex__codex", "mcp__codex__codex"], "allow_extra": true }
+    } }
+  ]
+}

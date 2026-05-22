@@ -1,0 +1,15 @@
+{
+  "id": "R04",
+  "template": "R",
+  "category": "Architecture review",
+  "hypothesis_target": "NEW_real_codebase",
+  "source": {
+    "path": "/Volumes/minim42tbtmm/pathcosmos/codex-on-claude/install/analyze.mjs",
+    "focus": "9-rule analyzer engine"
+  },
+  "params": {
+    "task": "review",
+    "focus": "9-rule analyzer engine"
+  },
+  "generated_at": "2026-05-21T10:12:30.558Z"
+}

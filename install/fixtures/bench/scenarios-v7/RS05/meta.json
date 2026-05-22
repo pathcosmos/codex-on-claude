@@ -1,0 +1,16 @@
+{
+  "id": "RS05",
+  "template": "RS",
+  "category": "Real codebase review (strict ORACLE)",
+  "hypothesis_target": "P2_real_strict",
+  "source": {
+    "path": "~/aidata/pathcosmos/cli-ascii-usage/src/cli.ts",
+    "focus": "CLI arg parsing edge cases"
+  },
+  "required_issues": [
+    "unicode_handling",
+    "empty_input",
+    "flag_collision"
+  ],
+  "test": "does strict ORACLE produce partial-fail (sweet spot entry)?"
+}

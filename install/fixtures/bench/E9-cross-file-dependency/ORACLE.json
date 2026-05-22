@@ -1,0 +1,20 @@
+{
+  "scenario": "E9-cross-file-dependency",
+  "notes": "8 files with 1 circular dep (core↔utils) and 2 missing imports (db.js, security.js). β delegates analysis.",
+  "criteria": [
+    { "name": "dep_graph_min_8", "type": "final_json_array_min", "args": { "field": "dependency_graph", "min": 8 } },
+    { "name": "circular_dep_found", "type": "final_json_array_min", "args": { "field": "circular_dependencies", "min": 1 } },
+    { "name": "missing_files_min_2", "type": "final_json_array_min", "args": { "field": "missing_files", "min": 1 } },
+    { "name": "mentions_circular_or_loop", "type": "contains_text", "args": { "needle": "circular" } },
+    { "name": "alpha_main_bloated", "type": "arm_specific", "args": {
+        "arm": "alpha",
+        "inner_type": "tool_call_response_size_p95_max",
+        "inner_args": { "max_chars": 1000000 }
+    } },
+    { "name": "beta_main_protected", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_response_size_p95_max",
+        "inner_args": { "max_chars": 20000 }
+    } }
+  ]
+}

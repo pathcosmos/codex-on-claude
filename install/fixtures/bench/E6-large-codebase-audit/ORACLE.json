@@ -1,0 +1,24 @@
+{
+  "scenario": "E6-large-codebase-audit",
+  "notes": "10 modules ~21KB total with planted issues (MD5, SQLi, path-traversal, ReDoS, open-redirect, etc.). β delegates to subagent to protect main context.",
+  "criteria": [
+    { "name": "issues_found_min_5", "type": "final_json_array_min", "args": { "field": "issues_found", "min": 5 } },
+    { "name": "files_audited_min", "type": "final_json_field", "args": { "field": "files_audited" } },
+    { "name": "mentions_security_or_audit", "type": "contains_text", "args": { "needle": "security" } },
+    { "name": "alpha_main_context_bloated", "type": "arm_specific", "args": {
+        "arm": "alpha",
+        "inner_type": "tool_call_response_size_p95_max",
+        "inner_args": { "max_chars": 1000000 }
+    } },
+    { "name": "beta_main_context_protected", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_response_size_p95_max",
+        "inner_args": { "max_chars": 15000 }
+    } },
+    { "name": "beta_delegated", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "final_json_field",
+        "inner_args": { "field": "delegated_to" }
+    } }
+  ]
+}

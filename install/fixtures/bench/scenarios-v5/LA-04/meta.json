@@ -1,0 +1,8 @@
+{
+  "id": "LA-04",
+  "template": "LLM",
+  "category": "Hard reasoning",
+  "hypothesis_target": "P4_tdd_followup",
+  "generated_at": "2026-05-21T00:33:25.126Z",
+  "generator": "A"
+}

@@ -1,0 +1,60 @@
+# codex-on-claude — files excluded from `npm publish` tarball.
+# Keep the published package small (target ≤ 500 KB) and free of dev-only artifacts.
+# Auto-inclusion rules (npm always packs these, ignore is moot): package.json, README.md, LICENSE, CHANGELOG.md, README.ko.md.
+
+# ===== Dev tooling / sandboxes =====
+.claude/
+.git/
+.gitignore
+.npmrc
+.editorconfig
+.vscode/
+.idea/
+node_modules/
+*.log
+*.tmp
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+
+# ===== Bench fixtures (53 MB / ~11K files — dev-only) =====
+# v1-v9 benchmark scenarios, runs, reports, generation scripts.
+install/fixtures/bench/
+install/fixtures/analyze-rules/
+
+# ===== v0.5.0 verification fixtures (130+ tests — dev-only) =====
+install/fixtures/v05/
+
+# ===== Internal R&D analysis docs (kept in repo for history; not shipped) =====
+docs/v5-*.md
+docs/v6-*.md
+docs/v7-*.md
+docs/v8-*.md
+docs/v9-*.md
+docs/test-scenarios-codex-calls.md
+docs/test-execution-results-*.md
+docs/test-results-alpha-vs-beta-*.md
+docs/test-claude-vs-codex-bench.md
+docs/test-plan-0.5.0.md
+docs/implementation-log.md
+docs/ko/
+docs/release-notes-0.4.*.md
+
+# ===== Build artifacts / scratch =====
+_runs/
+coverage/
+tmp/
+out/
+
+# ===== What WE explicitly keep in the tarball =====
+# install/install.mjs       (entry point)
+# install/manifest.json     (install spec)
+# install/hooks.mjs install/templater.mjs install/threads.mjs install/analyze.mjs
+# install/detect-signals.mjs install/auto-probe.mjs    (NEW v0.5.0)
+# install/components/skills/   (all 9 SKILL.md)
+# install/components/agents/   (codex-reviewer + fallback)
+# docs/guidance-quick-ref.md docs/guidance-comparison.md
+# docs/guidance-claude-only.md docs/guidance-codex-only.md docs/guidance-claude-orchestrates-codex.md
+# docs/synergy-playbook.md docs/usage-mode-config.md
+# docs/release-notes-0.5.0.md docs/security-review-0.5.0.md

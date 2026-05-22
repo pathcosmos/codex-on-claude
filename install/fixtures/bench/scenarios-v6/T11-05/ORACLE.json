@@ -1,0 +1,93 @@
+{
+  "scenario": "T11-05",
+  "notes": "T11 α-fail-dial — circuit-breaker, target=40%",
+  "criteria": [
+    {
+      "name": "json_sections_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "sections"
+      }
+    },
+    {
+      "name": "word_count_max",
+      "type": "word_count_max",
+      "args": {
+        "max": 700
+      }
+    },
+    {
+      "name": "has_description",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "Description"
+        ]
+      }
+    },
+    {
+      "name": "has_how_to_invoke",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "How to invoke"
+        ]
+      }
+    },
+    {
+      "name": "has_guardrails",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "Guardrails"
+        ]
+      }
+    },
+    {
+      "name": "has_must_procedures",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "MUST procedures"
+        ]
+      }
+    },
+    {
+      "name": "has_edge_cases",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "Edge cases"
+        ]
+      }
+    },
+    {
+      "name": "mentions_state",
+      "type": "contains_text",
+      "args": {
+        "needle": "state"
+      }
+    },
+    {
+      "name": "mentions_constructor",
+      "type": "contains_text",
+      "args": {
+        "needle": "constructor"
+      }
+    },
+    {
+      "name": "mentions_reset",
+      "type": "contains_text",
+      "args": {
+        "needle": "reset"
+      }
+    },
+    {
+      "name": "mentions_thread_safety",
+      "type": "contains_text",
+      "args": {
+        "needle": "thread"
+      }
+    }
+  ]
+}

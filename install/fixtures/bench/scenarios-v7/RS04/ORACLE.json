@@ -1,0 +1,53 @@
+{
+  "scenario": "RS04",
+  "notes": "RS strict ORACLE — templater.mjs, 3 required categories",
+  "criteria": [
+    {
+      "name": "findings_by_category_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "findings_by_category"
+      }
+    },
+    {
+      "name": "mentions_focus_term",
+      "type": "contains_text",
+      "args": {
+        "needle": "template"
+      }
+    },
+    {
+      "name": "mentions_undefined_var",
+      "type": "contains_text",
+      "args": {
+        "needle": "undefined"
+      }
+    },
+    {
+      "name": "mentions_escaping",
+      "type": "contains_text",
+      "args": {
+        "needle": "escaping"
+      }
+    },
+    {
+      "name": "mentions_circular",
+      "type": "contains_text",
+      "args": {
+        "needle": "circular"
+      }
+    },
+    {
+      "name": "beta_codex_called",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

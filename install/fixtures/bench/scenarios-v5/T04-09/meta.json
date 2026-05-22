@@ -1,0 +1,13 @@
+{
+  "id": "T04-09",
+  "template": "T04",
+  "category": "Hard reasoning / constraint",
+  "hypothesis_target": "P3_reasoning_high",
+  "params": {
+    "id": "T04-09",
+    "problem": "matrix-chain-mult",
+    "size": "small",
+    "constraints": 1
+  },
+  "generated_at": "2026-05-20T14:30:11.160Z"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "T11-03",
+  "template": "T11",
+  "category": "Documentation authoring",
+  "hypothesis_target": "P1_self_review_revised",
+  "params": {
+    "id": "T11-03",
+    "module": "retry-backoff",
+    "alpha_target_pct": "75",
+    "n_criteria": 7,
+    "explicit_sections": "half"
+  },
+  "generated_at": "2026-05-21T07:58:47.935Z"
+}

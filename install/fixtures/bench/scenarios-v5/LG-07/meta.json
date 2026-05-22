@@ -1,0 +1,8 @@
+{
+  "id": "LG-07",
+  "template": "LLM",
+  "category": "Concurrency",
+  "hypothesis_target": "P4_tdd_followup",
+  "generated_at": "2026-05-21T00:38:51.145Z",
+  "generator": "G"
+}

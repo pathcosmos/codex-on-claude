@@ -1,0 +1,8 @@
+{
+  "id": "LA-13",
+  "template": "LLM",
+  "category": "Type inference",
+  "hypothesis_target": "P3_reasoning_high",
+  "generated_at": "2026-05-21T00:33:25.131Z",
+  "generator": "A"
+}

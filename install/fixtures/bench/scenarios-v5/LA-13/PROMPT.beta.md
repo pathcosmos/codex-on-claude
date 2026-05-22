@@ -1,0 +1,1 @@
+Use /codex-review to resolve TypeScript type errors in generic validator composition. Identify constraint violations and incorrect type variable bindings. Show correct types and why constraints matter. Provide fixed code. Return JSON with: errors (array with location, problem, constraint_violation, correct_type, explanation).

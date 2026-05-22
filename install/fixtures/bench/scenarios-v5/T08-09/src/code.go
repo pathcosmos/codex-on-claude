@@ -1,0 +1,1 @@
+f, _ := os.Open("data.txt"); buf := make([]byte, 1024); f.Read(buf); // assumes UTF-8

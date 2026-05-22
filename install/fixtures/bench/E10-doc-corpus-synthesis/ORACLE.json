@@ -1,0 +1,16 @@
+{
+  "scenario": "E10-doc-corpus-synthesis",
+  "notes": "6 service docs ~4KB total. β delegates synthesis to subagent. Quality: dep graph + top 3 risks should be coherent.",
+  "criteria": [
+    { "name": "services_min_6", "type": "final_json_array_min", "args": { "field": "services", "min": 6 } },
+    { "name": "dependencies_min_5", "type": "final_json_array_min", "args": { "field": "dependencies", "min": 5 } },
+    { "name": "top_risks_3", "type": "final_json_array_min", "args": { "field": "top_risks", "min": 3 } },
+    { "name": "mentions_audit_or_compliance", "type": "contains_text", "args": { "needle": "audit" } },
+    { "name": "synthesis_done_field", "type": "final_json_field", "args": { "field": "synthesis_done", "equals": true } },
+    { "name": "beta_delegated", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "final_json_field",
+        "inner_args": { "field": "delegated_to" }
+    } }
+  ]
+}

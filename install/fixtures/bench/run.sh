@@ -64,17 +64,54 @@ jq -c 'select(.type=="assistant")
        | {name, input}' "$OUT/stream.jsonl" 2>/dev/null \
   > "$OUT/tool_calls.jsonl" || true
 
-# Codex-side usage estimation (sum char-length of mcp__codex__codex* responses ÷ 4)
-# Only count tool_result events that pair with codex MCP calls — use tool_calls.jsonl as the filter.
+# Codex-side usage estimation (char/4 heuristic, ±30%).
+# FIX (Phase 0.5): previously this counted ALL tool_results — Read/Bash/etc — inflating Codex tokens.
+# Now we (1) extract tool_use IDs whose .name starts with mcp__codex__, then (2) filter tool_results by tool_use_id.
+jq -r 'select(.type=="assistant")
+       | (.message.content // [])[]?
+       | select(.type=="tool_use" and (.name // "" | startswith("mcp__codex__")))
+       | .id' "$OUT/stream.jsonl" 2>/dev/null | sort -u > "$OUT/.codex_ids.txt" || true
+
+if [ -s "$OUT/.codex_ids.txt" ]; then
+  jq -c --rawfile ids_raw "$OUT/.codex_ids.txt" \
+    '($ids_raw | split("\n") | map(select(. != ""))) as $ids
+     | select(.type=="user")
+     | (.message.content // [])[]?
+     | select(.type=="tool_result")
+     | select(.tool_use_id as $tid | $ids | index($tid))
+     | (.content // [])
+     | (if type=="array" then map(.text // "") | add else (. // "") end)
+     | {response_chars: ((. // "") | length)}' "$OUT/stream.jsonl" 2>/dev/null \
+    | jq -s 'reduce .[] as $r ({tokens_est: 0, samples: 0, response_chars_total: 0};
+                .tokens_est += (($r.response_chars // 0) / 4 | floor)
+                | .samples += 1
+                | .response_chars_total += ($r.response_chars // 0))
+             | . + {estimated: true, source: "char/4 of mcp__codex__* tool_results only"}' \
+    > "$OUT/cost.codex.json"
+else
+  echo '{"tokens_est": 0, "samples": 0, "response_chars_total": 0, "estimated": true, "source": "no codex tool_use events found"}' > "$OUT/cost.codex.json"
+fi
+rm -f "$OUT/.codex_ids.txt"
+
+# Tool-result response size distribution (all tool_results — used by tool_call_response_size_p95 evaluator
+# for D3 token-efficiency measurement of main-context bloat).
 jq -c 'select(.type=="user")
        | (.message.content // [])[]?
        | select(.type=="tool_result")
        | (.content // [])
        | (if type=="array" then map(.text // "") | add else (. // "") end)
-       | {response_chars: ((. // "") | length)}' "$OUT/stream.jsonl" 2>/dev/null \
-  | jq -s 'reduce .[] as $r ({tokens_est: 0}; .tokens_est += (($r.response_chars // 0) / 4 | floor))
-           | . + {estimated: true, note: "char/4 heuristic — accurate ±30%; counts ALL tool_results, not just codex"}' \
-  > "$OUT/cost.codex.json"
+       | ((. // "") | length)' "$OUT/stream.jsonl" 2>/dev/null \
+  | jq -s '. as $sizes
+           | ($sizes | length) as $n
+           | if $n == 0 then {count: 0, p50: 0, p95: 0, max: 0, sum: 0}
+             else ($sizes | sort) as $sorted
+                  | {count: $n,
+                     p50: $sorted[($n * 50 / 100 | floor)],
+                     p95: $sorted[($n * 95 / 100 | floor) | if . >= $n then $n - 1 else . end],
+                     max: $sorted[-1],
+                     sum: ($sizes | add)}
+             end' \
+  > "$OUT/tool_result_sizes.json" || echo '{"count":0,"p50":0,"p95":0,"max":0,"sum":0}' > "$OUT/tool_result_sizes.json"
 
 # Filesystem diff captured for edit scenarios
 if [ -d "$WORK/.git" ]; then

@@ -1,0 +1,54 @@
+{
+  "as_of_date": "2026-05-20",
+  "source_url": "https://www.anthropic.com/pricing + https://platform.openai.com/docs/pricing — update this file when prices change",
+  "currency": "USD",
+  "units": "per million tokens",
+  "models": {
+    "claude-haiku-4-5": {
+      "vendor": "anthropic",
+      "in_per_mtok": 1.00,
+      "out_per_mtok": 5.00,
+      "cache_read_per_mtok": 0.10,
+      "cache_creation_per_mtok": 1.25
+    },
+    "claude-sonnet-4-6": {
+      "vendor": "anthropic",
+      "in_per_mtok": 3.00,
+      "out_per_mtok": 15.00,
+      "cache_read_per_mtok": 0.30,
+      "cache_creation_per_mtok": 3.75
+    },
+    "claude-opus-4-7": {
+      "vendor": "anthropic",
+      "in_per_mtok": 15.00,
+      "out_per_mtok": 75.00,
+      "cache_read_per_mtok": 1.50,
+      "cache_creation_per_mtok": 18.75
+    },
+    "gpt-5": {
+      "vendor": "openai",
+      "in_per_mtok": 1.25,
+      "out_per_mtok": 10.00,
+      "cache_read_per_mtok": 0.13,
+      "cache_creation_per_mtok": 1.25,
+      "note": "approximate — verify before billing-grade use"
+    },
+    "gpt-5.5-codex": {
+      "vendor": "openai",
+      "in_per_mtok": 2.50,
+      "out_per_mtok": 20.00,
+      "cache_read_per_mtok": 0.25,
+      "cache_creation_per_mtok": 2.50,
+      "note": "approximate — verify before billing-grade use"
+    }
+  },
+  "default_models": {
+    "claude_driver": "claude-haiku-4-5",
+    "codex_callee": "gpt-5"
+  },
+  "codex_token_split": {
+    "in_ratio": 0.40,
+    "out_ratio": 0.60,
+    "note": "char/4 heuristic splits estimated tokens into input/output by this ratio for USD calculation"
+  }
+}

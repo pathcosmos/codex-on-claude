@@ -1,0 +1,65 @@
+{
+  "scenario": "T11-03",
+  "notes": "T11 α-fail-dial — retry-backoff, target=75%",
+  "criteria": [
+    {
+      "name": "json_sections_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "sections"
+      }
+    },
+    {
+      "name": "word_count_max",
+      "type": "word_count_max",
+      "args": {
+        "max": 700
+      }
+    },
+    {
+      "name": "has_description",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "Description"
+        ]
+      }
+    },
+    {
+      "name": "has_how_to_invoke",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "How to invoke"
+        ]
+      }
+    },
+    {
+      "name": "has_guardrails",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "Guardrails"
+        ]
+      }
+    },
+    {
+      "name": "has_must_procedures",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "MUST procedures"
+        ]
+      }
+    },
+    {
+      "name": "has_edge_cases",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "Edge cases"
+        ]
+      }
+    }
+  ]
+}

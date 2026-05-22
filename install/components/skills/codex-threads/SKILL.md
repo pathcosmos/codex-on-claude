@@ -9,6 +9,11 @@ Browse and act on `~/.claude/codex-on-claude/threads/<threadId>.json` — the pe
 
 Only active when installed via `--threads=basic` or `--threads=full`. Disable with `codex-on-claude reconfigure --threads=off`.
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+This Skill is **catalog-only**: read/write to local JSON, no Codex calls. Allowed in every mode (including `none`). The `resume` sub-command, however, does fire a Codex CLI call — that one is blocked when `usageMode=none`.
+
 ## What's in a thread record
 
 ```json

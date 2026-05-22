@@ -1,0 +1,51 @@
+{
+  "scenario": "T14-03",
+  "notes": "T14 α-fail-dial — policy-trees, n_files=6, implicit=2, α=65%",
+  "criteria": [
+    {
+      "name": "components_min",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "components",
+        "min": 4
+      }
+    },
+    {
+      "name": "dependencies_present",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "dependencies",
+        "min": 1
+      }
+    },
+    {
+      "name": "top_risks_3",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "top_risks",
+        "min": 3
+      }
+    },
+    {
+      "name": "mentions_domain",
+      "type": "contains_text",
+      "args": {
+        "needle": "policy"
+      }
+    },
+    {
+      "name": "mentions_invariant",
+      "type": "contains_text",
+      "args": {
+        "needle": "invariant"
+      }
+    },
+    {
+      "name": "mentions_silent",
+      "type": "contains_text",
+      "args": {
+        "needle": "silent"
+      }
+    }
+  ]
+}

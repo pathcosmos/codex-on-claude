@@ -1,0 +1,44 @@
+{
+  "scenario": "T14-02",
+  "notes": "T14 α-fail-dial — service-docs, n_files=5, implicit=1, α=85%",
+  "criteria": [
+    {
+      "name": "components_min",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "components",
+        "min": 3
+      }
+    },
+    {
+      "name": "dependencies_present",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "dependencies",
+        "min": 1
+      }
+    },
+    {
+      "name": "top_risks_3",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "top_risks",
+        "min": 3
+      }
+    },
+    {
+      "name": "mentions_domain",
+      "type": "contains_text",
+      "args": {
+        "needle": "service"
+      }
+    },
+    {
+      "name": "mentions_invariant",
+      "type": "contains_text",
+      "args": {
+        "needle": "invariant"
+      }
+    }
+  ]
+}

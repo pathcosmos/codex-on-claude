@@ -1,0 +1,13 @@
+{
+  "id": "T07-03",
+  "template": "T07",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P6_ceiling",
+  "params": {
+    "id": "T07-03",
+    "task": "identify-unused-import",
+    "lang": "py",
+    "loc": 40
+  },
+  "generated_at": "2026-05-21T00:00:58.787Z"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "T14-02",
+  "template": "T14",
+  "category": "Multi-doc synthesis",
+  "hypothesis_target": "P5_catastrophe_dial",
+  "params": {
+    "id": "T14-02",
+    "domain": "service-docs",
+    "n_files": 5,
+    "implicit_required": 1,
+    "alpha_target_pct": "85",
+    "json_strict": 0.5
+  },
+  "generated_at": "2026-05-21T07:58:47.943Z"
+}

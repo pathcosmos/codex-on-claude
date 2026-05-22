@@ -1,0 +1,29 @@
+{
+  "scenario": "T11-01",
+  "notes": "T11 α-fail-dial — rate-limiter, target=100%",
+  "criteria": [
+    {
+      "name": "json_sections_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "sections"
+      }
+    },
+    {
+      "name": "word_count_max",
+      "type": "word_count_max",
+      "args": {
+        "max": 700
+      }
+    },
+    {
+      "name": "has_description",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "Description"
+        ]
+      }
+    }
+  ]
+}

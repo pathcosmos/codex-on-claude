@@ -1,0 +1,28 @@
+{
+  "scenario": "T07-03",
+  "notes": "T07 ceiling baseline — identify-unused-import/py",
+  "criteria": [
+    {
+      "name": "answer_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "answer"
+      }
+    },
+    {
+      "name": "task_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "task",
+        "equals": "identify-unused-import"
+      }
+    },
+    {
+      "name": "mentions_task_keyword",
+      "type": "contains_text",
+      "args": {
+        "needle": "identify"
+      }
+    }
+  ]
+}

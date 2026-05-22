@@ -1,0 +1,1 @@
+Use /codex-review to find type coercion bugs. Show problematic inputs for each loose equality check. Explain the danger. Provide strict equality fixes. Return JSON with: bugs (array with line, issue, problematic_input, fix).

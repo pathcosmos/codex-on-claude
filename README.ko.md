@@ -17,11 +17,13 @@ npx codex-on-claude                    # 인터랙티브 설치
 
 설치 단계:
 1. 사전 점검 (Node 18.17+, `codex`, `claude`, `codex doctor`, `claude auth`, `codex` MCP 연결)
-2. **네 가지 질문** — 화살표 ↑/↓ 이동, 스페이스 토글, Enter 확정
+2. **일곱 가지 질문** — 화살표 ↑/↓ 이동, 스페이스 토글, Enter 확정 (v0.5.0에서 §7 `usageMode` 추가)
 3. 최종 review 화면 — `Apply / Edit again / Cancel`
-4. 선택한 Skill (+ 선택적 Agent / hook) 을 `~/.claude/` 아래에 배치
+4. 선택한 Skill (+ 선택적 Agent / PostToolUse hook / `usageMode=none` 시 PreToolUse gate) 을 `~/.claude/` 아래에 배치
 
 언제든 `codex-on-claude reconfigure` 로 다시 — 이전 선택이 미리 체크되어 나옵니다.
+
+> **v0.5.0 마이그레이션**: 기존 설치 (0.4.x 이하)는 silent 하게 `usageMode=synergy` 가 채워집니다. 동작 변화 없음. 새 옵션을 보고 싶으면 `codex-on-claude reconfigure` 실행.
 
 ---
 
@@ -54,9 +56,9 @@ npx codex-on-claude                    # 인터랙티브 설치
 
 ---
 
-## 설치 시 묻는 네 가지 옵션
+## 설치 시 묻는 일곱 가지 옵션
 
-자세한 동작은 [README.md](README.md) 의 *"The four install questions"* 섹션을 보세요.
+자세한 동작은 [README.md](README.md) 의 *"The install questions"* 섹션 (§1–§7) 을 보세요. v0.4.1 부터 subscription + model/reasoning 이 추가되어 4 → 6 으로, v0.5.0 부터 `usageMode` 가 추가되어 6 → 7 로 늘었습니다.
 
 ### 1. patterns (다중)
 - One-shot read-only review → `codex-review`
@@ -81,7 +83,55 @@ npx codex-on-claude                    # 인터랙티브 설치
 - `basic` (improvement loop on 시 기본) — threadId + title + tags + lastUsed
 - `full` — 위에 + goal/outcome/decision/note + incidents + fallbackStrategy
 
-비대화형 예:
+### 5. subscription 티어 (v0.4.1)
+- Claude: `enterprise / team / max (기본) / pro / free`
+- Codex: `team / pro (기본) / plus / free`
+
+### 6. model / reasoning — 기본 + fallback (v0.4.1)
+- 기본 모델 + 추론 강도를 측면별로 선택 (Codex / Claude reviewer)
+- Fallback은 티어 base로 **잠금** — quota / rate-limit 시 자동 재시도
+
+### 7. usageMode — Codex 호출 정책 (v0.5.0)
+
+Codex를 얼마나 적극적으로 호출할지의 정책. 네 가지 중 택일:
+
+| 모드 | 한 줄 설명 | 추천 대상 |
+|---|---|---|
+| `none` | Codex 호출 차단 (PreToolUse gate) | 비용/프라이버시 민감 |
+| `synergy` | v9 가이드 추종 (Quick-Ref 3-Q + R1–R6) | **기본** — 90% 사용자 |
+| `auto` | heuristic signal detection (+ 옵션: Tier 2 LLM probe) | power user |
+| `max` | 품질 우선 자동화 (R1/R5 default, γ hot-swap) | critical task |
+
+플래그:
+- `--usage-mode=none|synergy|auto|max`
+- `--auto-tier2-llm-probe=on|off` (auto 모드에서만 사용)
+
+**중요**: `max` 모드도 hard DO-NOT 룰 (Chain-JSON Trap, Subagent-Strict, Turn Burn) 을 **우회하지 않습니다**.
+
+#### v0.5.0 추가 hardening (Codex peer review + adversarial review 이후 14건 fix)
+
+기본 4-mode 정책 외에, ship 직전 광범위한 hardening 적용. 사용자 가시 변경사항:
+
+- **PreToolUse gate 가 race-free.** Hook 명령에 `--enforce-mode=none` 이 install 시점에 baked-in 되므로 gate 결정이 별도 `config.json` 읽기에 의존하지 않음. 모드 toggle 시 race 제거.
+- **Bash CLI 우회 차단.** `mode=none` 이 MCP 호출뿐 아니라 `Bash` 의 `codex exec` / `codex-on-claude threads resume` / `npx ...codex...` / path-qualified codex 도 차단. 와일드카드 (`mcp__codex__.*`) 로 현재 + 미래 MCP tool 변종 모두 보호. 대소문자 무관.
+- **Codex-shape tool 대상 corrupt state 시 fail-CLOSED.** `config.json` 손상 또는 페이로드 malformed + tool 이 Codex 모양이면 deny (이전: fail-OPEN). 일반 tool 은 여전히 fail-open.
+- **Gate 상태 자동 reconcile.** 매 reconfigure 가 `~/.claude/settings.json` 실제 상태 점검, `config.json` 청구와 무관하게 orphan gate 제거.
+- **Hook decision JSON 이 legacy + new schema 둘 다 emit.** `{decision, reason}` + `hookSpecificOutput.permissionDecision` 동시 출력 → 현 Claude Code 2.1.x + 미래 버전 모두 호환. Hard-deny 시 추가로 `exit(2)` + stderr backstop.
+- **State 디렉토리 0700.** logs / threads / improvements 모두 user-only 권한 (FAT/exFAT 제외 best-effort).
+- **Atomic config writes.** `config.json` / `settings.json` / thread 카탈로그가 `temp+rename` 으로 기록 → concurrent reader 가 torn JSON 절대 못 봄.
+- **CLI 파싱 강화.** `--usage-mode max` (공백 분리, 흔한 실수) 가 hint 와 함께 error. `=` 사용 권장.
+- **Silent-fill info line.** 업그레이드 사용자가 npx auto-detected reconfigure 시 `usageMode: silent default 'synergy' applied for upgrade` 확인 가능. 명시 `reconfigure` 는 §7 prompt 표시.
+- **`auto` 모드 classifier 정확도 향상.** Tier 1 heuristic: chain step 변종, 혼합 adversarial+style, unquoted field-list, "table"+output-intent, plural 형태, "edge cases" 단독 → TDD 제외.
+- **모든 log row 가 `usageMode` 포함.** `ruleUsageModeDrift` 의 정확도 개선.
+- **`ruleUsageModeDrift` 가 `config.updatedAt` 기준 필터링.** 모드 전환 직후 historical log false-positive 제거.
+
+상세: [`docs/release-notes-0.5.0.md`](docs/release-notes-0.5.0.md) + [`docs/security-review-0.5.0.md`](docs/security-review-0.5.0.md).
+
+**최종 검증 (5회 Codex peer review 후)**: **168 자동 test case** (112 unit + 37 integration + 17 installer-flow + 2 regression). npm tarball **115 kB / 32 files** (초기 build 대비 99% 감소). **총 28건 fix** 사전 적용 (F1-F8 → G1-G7 → H1-H7 → B1-B6 → H1-H4 Bash precision → M1-M3 → A1-A4 — CHANGELOG.md 참조).
+
+자세한 mode 사양: [`docs/usage-mode-config.md`](docs/usage-mode-config.md). 30 초 결정 카드: [`docs/guidance-quick-ref.md`](docs/guidance-quick-ref.md). 레시피: [`docs/synergy-playbook.md`](docs/synergy-playbook.md).
+
+비대화형 예 (v0.5.0):
 
 ```sh
 codex-on-claude \
@@ -89,6 +139,8 @@ codex-on-claude \
   --context-policy=mixed \
   --improvement-loop=manual \
   --threads=basic \
+  --usage-mode=synergy \
+  --subscription-claude=max --subscription-codex=pro \
   --yes
 ```
 

@@ -1,0 +1,13 @@
+{
+  "id": "T05-10",
+  "template": "T05",
+  "category": "TDD / Test generation",
+  "hypothesis_target": "P4_tdd_followup",
+  "params": {
+    "id": "T05-10",
+    "module": "currency-converter",
+    "lang": "py",
+    "edge_cases": 4
+  },
+  "generated_at": "2026-05-20T14:30:11.165Z"
+}

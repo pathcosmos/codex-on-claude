@@ -1,0 +1,14 @@
+{
+  "id": "T02-09",
+  "template": "T02",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P2_adversarial",
+  "params": {
+    "id": "T02-09",
+    "domain": "feature-flag-eval",
+    "subtle_bug": "default_returned_on_error",
+    "lang": "ts",
+    "decoys": 1
+  },
+  "generated_at": "2026-05-20T14:30:11.150Z"
+}

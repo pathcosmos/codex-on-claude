@@ -1,0 +1,8 @@
+{
+  "id": "LG-01",
+  "template": "LLM",
+  "category": "K8s manifest",
+  "hypothesis_target": "P5_catastrophe",
+  "generated_at": "2026-05-21T00:38:51.141Z",
+  "generator": "G"
+}

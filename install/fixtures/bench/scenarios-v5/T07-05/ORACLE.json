@@ -1,0 +1,28 @@
+{
+  "scenario": "T07-05",
+  "notes": "T07 ceiling baseline — extract-constants/ts",
+  "criteria": [
+    {
+      "name": "answer_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "answer"
+      }
+    },
+    {
+      "name": "task_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "task",
+        "equals": "extract-constants"
+      }
+    },
+    {
+      "name": "mentions_task_keyword",
+      "type": "contains_text",
+      "args": {
+        "needle": "extract"
+      }
+    }
+  ]
+}

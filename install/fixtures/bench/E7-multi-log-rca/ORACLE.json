@@ -1,0 +1,27 @@
+{
+  "scenario": "E7-multi-log-rca",
+  "notes": "DB pool exhaustion → cache misses → API 5xx errors. RCA should identify DB as root cause and the 3-layer cascade.",
+  "criteria": [
+    { "name": "root_cause_db", "type": "final_json_field", "args": { "field": "root_cause_layer", "equals": "db" } },
+    { "name": "cascade_chain_min", "type": "final_json_array_min", "args": { "field": "cascade_chain", "min": 3 } },
+    { "name": "error_categories_present", "type": "final_json_field", "args": { "field": "error_categories" } },
+    { "name": "remediation_min", "type": "final_json_array_min", "args": { "field": "remediation_priority", "min": 2 } },
+    { "name": "mentions_pool_or_exhaust", "type": "contains_text", "args": { "needle": "pool" } },
+    { "name": "mentions_timeout_or_cascade", "type": "contains_text", "args": { "needle": "cascade" } },
+    { "name": "alpha_main_bloated", "type": "arm_specific", "args": {
+        "arm": "alpha",
+        "inner_type": "tool_call_response_size_p95_max",
+        "inner_args": { "max_chars": 1000000 }
+    } },
+    { "name": "beta_main_protected", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_response_size_p95_max",
+        "inner_args": { "max_chars": 20000 }
+    } },
+    { "name": "beta_delegated", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "final_json_field",
+        "inner_args": { "field": "delegated_to" }
+    } }
+  ]
+}

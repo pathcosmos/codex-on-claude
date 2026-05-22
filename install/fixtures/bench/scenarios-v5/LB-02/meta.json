@@ -1,0 +1,8 @@
+{
+  "id": "LB-02",
+  "template": "LLM",
+  "category": "Bug fix",
+  "hypothesis_target": "P2_adversarial",
+  "generated_at": "2026-05-21T00:35:29.962Z",
+  "generator": "B"
+}

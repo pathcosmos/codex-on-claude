@@ -1,0 +1,1 @@
+SELECT u.*, o.* FROM users u, orders o WHERE u.created_at > '2024-01-01';

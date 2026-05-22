@@ -1,0 +1,14 @@
+{
+  "id": "T06-01",
+  "template": "T06",
+  "category": "Long-context (multi-doc)",
+  "hypothesis_target": "P7_subagent_risk",
+  "params": {
+    "id": "T06-01",
+    "input_kind": "code-modules",
+    "n_files": 10,
+    "kb_per_file": 3,
+    "strict": 0.5
+  },
+  "generated_at": "2026-05-21T00:00:58.775Z"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "T15-04",
+  "template": "T15",
+  "category": "TDD edge cases",
+  "hypothesis_target": "P4_tdd_followup_revised",
+  "params": {
+    "id": "T15-04",
+    "module": "skiplist-concurrent",
+    "explicit_edges": 1,
+    "hidden_edges": 3,
+    "alpha_target_pct": "45"
+  },
+  "generated_at": "2026-05-21T07:58:47.948Z"
+}

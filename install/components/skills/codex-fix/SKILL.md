@@ -12,6 +12,14 @@ Delegate **file edits** to Codex. Enforces these guardrails on every call:
 3. The model must return a concrete edit summary (per-file lines added/removed) so the user can review.
 4. `approval-policy` defaults to `on-request` (risky commands require user consent).
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+- `none` — Blocked. Have Claude apply the edits directly via the Edit tool.
+- `synergy` — Use only when α has already failed once on the same task OR the edit is mechanical multi-file (R3 reasoning=high recipe applies).
+- `auto` — Detect via `has_tdd` signal (`install/detect-signals.mjs`); only invoke when failing tests exist or edit is verifiable.
+- `max` — TDD context fires this Skill automatically; **never bypass** the file allowlist (P-Subagent-Strict guardrail = `{{guardrailSubagent}}` even in max).
+
 ## When to use
 - A small, well-scoped change (refactor, simple bugfix, clear addition) where Codex applying the diff is faster than Claude editing manually
 - The exact file set to touch is decided in advance

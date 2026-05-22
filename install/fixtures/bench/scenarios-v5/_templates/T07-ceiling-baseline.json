@@ -1,0 +1,19 @@
+{
+  "id": "T07",
+  "name": "ceiling-baseline",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P6_ceiling",
+  "description": "Simple tasks expected to be α=100%. Null hypothesis baseline: β should NOT exceed α (β-redundant expected).",
+  "param_combos": [
+    { "id": "T07-01", "task": "find-syntax-error", "lang": "js", "loc": 30 },
+    { "id": "T07-02", "task": "spot-typo", "lang": "md", "loc": 20 },
+    { "id": "T07-03", "task": "identify-unused-import", "lang": "py", "loc": 40 },
+    { "id": "T07-04", "task": "list-public-functions", "lang": "go", "loc": 50 },
+    { "id": "T07-05", "task": "extract-constants", "lang": "ts", "loc": 30 },
+    { "id": "T07-06", "task": "count-functions", "lang": "py", "loc": 40 },
+    { "id": "T07-07", "task": "find-todo-comments", "lang": "js", "loc": 35 },
+    { "id": "T07-08", "task": "rename-variable", "lang": "py", "loc": 25 },
+    { "id": "T07-09", "task": "format-json-output", "lang": "js", "loc": 20 },
+    { "id": "T07-10", "task": "list-dependencies", "lang": "json", "loc": 15 }
+  ]
+}

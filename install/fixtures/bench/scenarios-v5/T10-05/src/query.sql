@@ -1,0 +1,1 @@
+SELECT * FROM events_archive WHERE id = 12345; -- table has 80 columns including BLOB

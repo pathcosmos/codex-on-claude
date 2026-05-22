@@ -1,0 +1,37 @@
+{
+  "scenario": "T14-01",
+  "notes": "T14 α-fail-dial — config-bundles, n_files=4, implicit=0, α=100%",
+  "criteria": [
+    {
+      "name": "components_min",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "components",
+        "min": 2
+      }
+    },
+    {
+      "name": "dependencies_present",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "dependencies",
+        "min": 1
+      }
+    },
+    {
+      "name": "top_risks_3",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "top_risks",
+        "min": 3
+      }
+    },
+    {
+      "name": "mentions_domain",
+      "type": "contains_text",
+      "args": {
+        "needle": "config"
+      }
+    }
+  ]
+}

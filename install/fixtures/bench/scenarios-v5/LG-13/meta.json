@@ -1,0 +1,8 @@
+{
+  "id": "LG-13",
+  "template": "LLM",
+  "category": "Memory leak",
+  "hypothesis_target": "P4_tdd_followup",
+  "generated_at": "2026-05-21T00:38:51.149Z",
+  "generator": "G"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "LB-08",
+  "template": "LLM",
+  "category": "SQL optimization",
+  "hypothesis_target": "P3_reasoning_high",
+  "generated_at": "2026-05-21T00:35:29.966Z",
+  "generator": "B"
+}

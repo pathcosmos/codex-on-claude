@@ -1,0 +1,1 @@
+Generate comprehensive API documentation for parseDateTime(). Include parameter description, return type, all possible error cases with examples, edge cases, and usage patterns. Document month wrapping and leap year behavior. Return JSON with: description, parameters, returns, throws, examples.

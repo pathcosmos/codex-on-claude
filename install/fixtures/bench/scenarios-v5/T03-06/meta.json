@@ -1,0 +1,15 @@
+{
+  "id": "T03-06",
+  "template": "T03",
+  "category": "Multi-doc synthesis",
+  "hypothesis_target": "P5_catastrophe",
+  "params": {
+    "id": "T03-06",
+    "domain": "ci-pipelines",
+    "n_files": 5,
+    "chain": 4,
+    "strict": 0.6,
+    "subagent": false
+  },
+  "generated_at": "2026-05-20T14:30:11.154Z"
+}

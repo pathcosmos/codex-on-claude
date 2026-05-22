@@ -1,0 +1,15 @@
+{
+  "id": "T03-08",
+  "template": "T03",
+  "category": "Multi-doc synthesis",
+  "hypothesis_target": "P5_catastrophe",
+  "params": {
+    "id": "T03-08",
+    "domain": "policy-docs",
+    "n_files": 5,
+    "chain": 3,
+    "strict": 0.4,
+    "subagent": true
+  },
+  "generated_at": "2026-05-20T14:30:11.155Z"
+}

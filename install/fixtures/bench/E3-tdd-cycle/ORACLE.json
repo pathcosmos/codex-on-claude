@@ -1,0 +1,16 @@
+{
+  "scenario": "E3-tdd-cycle",
+  "notes": "TDD: spec + failing tests → impl → ask for edge cases → add tests. β chain: /codex-fix → /codex-followup.",
+  "criteria": [
+    { "name": "tests_pass", "type": "tests_pass" },
+    { "name": "stack_file_created", "type": "final_state_has_files", "args": { "paths": ["stack.js"] } },
+    { "name": "tests_pass_json", "type": "final_json_field", "args": { "field": "tests_pass", "equals": true } },
+    { "name": "tests_added_field", "type": "final_json_field", "args": { "field": "tests_added" } },
+    { "name": "mentions_stack_or_lifo", "type": "contains_text", "args": { "needle": "stack" } },
+    { "name": "beta_used_codex", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": { "name": "mcp__codex__codex", "min": 1 }
+    } }
+  ]
+}

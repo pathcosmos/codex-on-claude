@@ -1,0 +1,13 @@
+{
+  "id": "T04-04",
+  "template": "T04",
+  "category": "Hard reasoning / constraint",
+  "hypothesis_target": "P3_reasoning_high",
+  "params": {
+    "id": "T04-04",
+    "problem": "sudoku-variant",
+    "size": "medium",
+    "constraints": 5
+  },
+  "generated_at": "2026-05-20T14:30:11.159Z"
+}

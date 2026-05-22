@@ -1,0 +1,15 @@
+{
+  "id": "T12",
+  "name": "alpha-fail-review",
+  "category": "Code review (subtle bugs)",
+  "hypothesis_target": "P2_adversarial_revised",
+  "description": "Code review with α partial-fail dial via planted bug subtlety. Adversarial framing varies between α/β.",
+  "design_principle": "Same code base, bug subtlety + decoy count vary tiers. α fails 100% (T12-01) → 40% (T12-05).",
+  "param_combos": [
+    { "id": "T12-01", "domain": "string-eq", "subtle_bug": "obvious_typo", "alpha_target_pct": "100", "decoys": 0 },
+    { "id": "T12-02", "domain": "auth-token", "subtle_bug": "timing_attack", "alpha_target_pct": "85", "decoys": 1 },
+    { "id": "T12-03", "domain": "csv-parse", "subtle_bug": "embedded_quote", "alpha_target_pct": "65", "decoys": 2 },
+    { "id": "T12-04", "domain": "concurrent-counter", "subtle_bug": "tocttou_in_lock", "alpha_target_pct": "45", "decoys": 3 },
+    { "id": "T12-05", "domain": "lru-cache-recency", "subtle_bug": "recency_not_refreshed_on_set", "alpha_target_pct": "30", "decoys": 4 }
+  ]
+}

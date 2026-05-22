@@ -1,0 +1,15 @@
+{
+  "id": "T14-01",
+  "template": "T14",
+  "category": "Multi-doc synthesis",
+  "hypothesis_target": "P5_catastrophe_dial",
+  "params": {
+    "id": "T14-01",
+    "domain": "config-bundles",
+    "n_files": 4,
+    "implicit_required": 0,
+    "alpha_target_pct": "100",
+    "json_strict": 0.3
+  },
+  "generated_at": "2026-05-21T07:58:47.942Z"
+}

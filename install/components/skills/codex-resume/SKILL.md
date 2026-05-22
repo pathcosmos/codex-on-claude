@@ -7,6 +7,12 @@ description: Use when an existing Codex threadId can no longer be reached via mc
 
 Use when `mcp__codex__codex-reply` returns `Session not found for thread_id`, or in a brand-new Claude Code session that only knows the `threadId` of a prior task. Recovers state via `codex exec resume`, which reads the on-disk Codex transcript.
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+- `none` — Both the new MCP call and the `codex exec resume` CLI invocation are blocked or pointless. Tell the user "Codex resume disabled by usageMode=none" and stop.
+- `synergy` / `auto` / `max` — Allowed. Resume itself is a single shot; the **3-turn stop rule** (`{{guardrailTurnBurn}}`) starts counting from the resumed turn, not from session zero.
+
 ## When to use
 - `codex-reply` response contains `Session not found for thread_id: <id>`
 - You're in a fresh terminal / Claude session and only have a saved `threadId`

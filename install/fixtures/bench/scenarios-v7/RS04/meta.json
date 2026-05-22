@@ -1,0 +1,16 @@
+{
+  "id": "RS04",
+  "template": "RS",
+  "category": "Real codebase review (strict ORACLE)",
+  "hypothesis_target": "P2_real_strict",
+  "source": {
+    "path": "/Volumes/minim42tbtmm/pathcosmos/codex-on-claude/install/templater.mjs",
+    "focus": "template substitution safety"
+  },
+  "required_issues": [
+    "undefined_var",
+    "escaping",
+    "circular"
+  ],
+  "test": "does strict ORACLE produce partial-fail (sweet spot entry)?"
+}

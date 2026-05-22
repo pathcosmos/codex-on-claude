@@ -1,0 +1,1 @@
+Use /codex-review to identify O(n²) algorithmic bottlenecks. Calculate impact on 1M elements. Suggest O(n) alternatives using Set/Map. Return JSON with: current_complexity, issue, impact_1m_elements, optimized_code.

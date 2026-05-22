@@ -1,0 +1,39 @@
+{
+  "scenario": "T04-10",
+  "notes": "T04 reasoning — lcs-3-strings/small, constraints=1",
+  "criteria": [
+    {
+      "name": "answer_field_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "lcs"
+      }
+    },
+    {
+      "name": "mentions_problem",
+      "type": "contains_text",
+      "args": {
+        "needle": "lcs"
+      }
+    },
+    {
+      "name": "mentions_reasoning",
+      "type": "contains_text",
+      "args": {
+        "needle": "constraint"
+      }
+    },
+    {
+      "name": "beta_used_codex",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

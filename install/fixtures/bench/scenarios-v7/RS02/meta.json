@@ -1,0 +1,16 @@
+{
+  "id": "RS02",
+  "template": "RS",
+  "category": "Real codebase review (strict ORACLE)",
+  "hypothesis_target": "P2_real_strict",
+  "source": {
+    "path": "/Volumes/minim42tbtmm/pathcosmos/codex-on-claude/install/analyze.mjs",
+    "focus": "9-rule analyzer edge cases"
+  },
+  "required_issues": [
+    "threshold_off_by_one",
+    "concurrent_log_reads",
+    "time_window"
+  ],
+  "test": "does strict ORACLE produce partial-fail (sweet spot entry)?"
+}

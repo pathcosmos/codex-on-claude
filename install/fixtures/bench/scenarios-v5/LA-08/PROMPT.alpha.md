@@ -1,0 +1,1 @@
+Document all possible error paths and recovery strategies for getUser(). Enumerate every exception type that could be thrown, their causes, what handling occurs, and whether recovery is possible. Map the decision tree. Return JSON with: error_scenarios (array with error_type, cause, handling_strategy, recovery_possible).

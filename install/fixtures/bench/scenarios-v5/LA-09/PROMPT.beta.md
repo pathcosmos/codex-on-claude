@@ -1,0 +1,1 @@
+Use /codex-review to analyze deadlock potential. Trace concurrent transfers A→B and B→A. Show circular wait condition. Explain deadlock mechanism and propose lock ordering fix. Return JSON with: deadlock_scenario, why_deadlock_occurs, solution, prevention_strategy.

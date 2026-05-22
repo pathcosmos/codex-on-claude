@@ -1,0 +1,58 @@
+{
+  "scenario": "T14-05",
+  "notes": "T14 α-fail-dial — cross-team-rfc, n_files=8, implicit=5, α=30%",
+  "criteria": [
+    {
+      "name": "components_min",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "components",
+        "min": 5
+      }
+    },
+    {
+      "name": "dependencies_present",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "dependencies",
+        "min": 1
+      }
+    },
+    {
+      "name": "top_risks_3",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "top_risks",
+        "min": 3
+      }
+    },
+    {
+      "name": "mentions_domain",
+      "type": "contains_text",
+      "args": {
+        "needle": "cross"
+      }
+    },
+    {
+      "name": "mentions_invariant",
+      "type": "contains_text",
+      "args": {
+        "needle": "invariant"
+      }
+    },
+    {
+      "name": "mentions_silent",
+      "type": "contains_text",
+      "args": {
+        "needle": "silent"
+      }
+    },
+    {
+      "name": "mentions_retry",
+      "type": "contains_text",
+      "args": {
+        "needle": "retry"
+      }
+    }
+  ]
+}

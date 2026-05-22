@@ -1,0 +1,15 @@
+{
+  "id": "R10",
+  "template": "R",
+  "category": "Type review",
+  "hypothesis_target": "NEW_real_codebase",
+  "source": {
+    "path": "~/aidata/pathcosmos/claudflare_web/.astro/content.d.ts",
+    "focus": "TypeScript type definitions"
+  },
+  "params": {
+    "task": "review",
+    "focus": "TypeScript type definitions"
+  },
+  "generated_at": "2026-05-21T10:12:30.562Z"
+}

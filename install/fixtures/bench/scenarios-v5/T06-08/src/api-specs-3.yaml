@@ -1,0 +1,484 @@
+openapi: 3.0.0
+info:
+  title: svc-3
+paths:
+  /endpoint-0:
+    get:
+      summary: endpoint 0
+      responses:
+        '200':
+          description: ok
+  /endpoint-1:
+    get:
+      summary: endpoint 1
+      responses:
+        '200':
+          description: ok
+  /endpoint-2:
+    get:
+      summary: endpoint 2
+      responses:
+        '200':
+          description: ok
+  /endpoint-3:
+    get:
+      summary: endpoint 3
+      responses:
+        '200':
+          description: ok
+  /endpoint-4:
+    get:
+      summary: endpoint 4
+      responses:
+        '200':
+          description: ok
+  /endpoint-5:
+    get:
+      summary: endpoint 5
+      responses:
+        '200':
+          description: ok
+  /endpoint-6:
+    get:
+      summary: endpoint 6
+      responses:
+        '200':
+          description: ok
+  /endpoint-7:
+    get:
+      summary: endpoint 7
+      responses:
+        '200':
+          description: ok
+  /endpoint-8:
+    get:
+      summary: endpoint 8
+      responses:
+        '200':
+          description: ok
+  /endpoint-9:
+    get:
+      summary: endpoint 9
+      responses:
+        '200':
+          description: ok
+  /endpoint-10:
+    get:
+      summary: endpoint 10
+      responses:
+        '200':
+          description: ok
+  /endpoint-11:
+    get:
+      summary: endpoint 11
+      responses:
+        '200':
+          description: ok
+  /endpoint-12:
+    get:
+      summary: endpoint 12
+      responses:
+        '200':
+          description: ok
+  /endpoint-13:
+    get:
+      summary: endpoint 13
+      responses:
+        '200':
+          description: ok
+  /endpoint-14:
+    get:
+      summary: endpoint 14
+      responses:
+        '200':
+          description: ok
+  /endpoint-15:
+    get:
+      summary: endpoint 15
+      responses:
+        '200':
+          description: ok
+  /endpoint-16:
+    get:
+      summary: endpoint 16
+      responses:
+        '200':
+          description: ok
+  /endpoint-17:
+    get:
+      summary: endpoint 17
+      responses:
+        '200':
+          description: ok
+  /endpoint-18:
+    get:
+      summary: endpoint 18
+      responses:
+        '200':
+          description: ok
+  /endpoint-19:
+    get:
+      summary: endpoint 19
+      responses:
+        '200':
+          description: ok
+  /endpoint-20:
+    get:
+      summary: endpoint 20
+      responses:
+        '200':
+          description: ok
+  /endpoint-21:
+    get:
+      summary: endpoint 21
+      responses:
+        '200':
+          description: ok
+  /endpoint-22:
+    get:
+      summary: endpoint 22
+      responses:
+        '200':
+          description: ok
+  /endpoint-23:
+    get:
+      summary: endpoint 23
+      responses:
+        '200':
+          description: ok
+  /endpoint-24:
+    get:
+      summary: endpoint 24
+      responses:
+        '200':
+          description: ok
+  /endpoint-25:
+    get:
+      summary: endpoint 25
+      responses:
+        '200':
+          description: ok
+  /endpoint-26:
+    get:
+      summary: endpoint 26
+      responses:
+        '200':
+          description: ok
+  /endpoint-27:
+    get:
+      summary: endpoint 27
+      responses:
+        '200':
+          description: ok
+  /endpoint-28:
+    get:
+      summary: endpoint 28
+      responses:
+        '200':
+          description: ok
+  /endpoint-29:
+    get:
+      summary: endpoint 29
+      responses:
+        '200':
+          description: ok
+  /endpoint-30:
+    get:
+      summary: endpoint 30
+      responses:
+        '200':
+          description: ok
+  /endpoint-31:
+    get:
+      summary: endpoint 31
+      responses:
+        '200':
+          description: ok
+  /endpoint-32:
+    get:
+      summary: endpoint 32
+      responses:
+        '200':
+          description: ok
+  /endpoint-33:
+    get:
+      summary: endpoint 33
+      responses:
+        '200':
+          description: ok
+  /endpoint-34:
+    get:
+      summary: endpoint 34
+      responses:
+        '200':
+          description: ok
+  /endpoint-35:
+    get:
+      summary: endpoint 35
+      responses:
+        '200':
+          description: ok
+  /endpoint-36:
+    get:
+      summary: endpoint 36
+      responses:
+        '200':
+          description: ok
+  /endpoint-37:
+    get:
+      summary: endpoint 37
+      responses:
+        '200':
+          description: ok
+  /endpoint-38:
+    get:
+      summary: endpoint 38
+      responses:
+        '200':
+          description: ok
+  /endpoint-39:
+    get:
+      summary: endpoint 39
+      responses:
+        '200':
+          description: ok
+  /endpoint-40:
+    get:
+      summary: endpoint 40
+      responses:
+        '200':
+          description: ok
+  /endpoint-41:
+    get:
+      summary: endpoint 41
+      responses:
+        '200':
+          description: ok
+  /endpoint-42:
+    get:
+      summary: endpoint 42
+      responses:
+        '200':
+          description: ok
+  /endpoint-43:
+    get:
+      summary: endpoint 43
+      responses:
+        '200':
+          description: ok
+  /endpoint-44:
+    get:
+      summary: endpoint 44
+      responses:
+        '200':
+          description: ok
+  /endpoint-45:
+    get:
+      summary: endpoint 45
+      responses:
+        '200':
+          description: ok
+  /endpoint-46:
+    get:
+      summary: endpoint 46
+      responses:
+        '200':
+          description: ok
+  /endpoint-47:
+    get:
+      summary: endpoint 47
+      responses:
+        '200':
+          description: ok
+  /endpoint-48:
+    get:
+      summary: endpoint 48
+      responses:
+        '200':
+          description: ok
+  /endpoint-49:
+    get:
+      summary: endpoint 49
+      responses:
+        '200':
+          description: ok
+  /endpoint-50:
+    get:
+      summary: endpoint 50
+      responses:
+        '200':
+          description: ok
+  /endpoint-51:
+    get:
+      summary: endpoint 51
+      responses:
+        '200':
+          description: ok
+  /endpoint-52:
+    get:
+      summary: endpoint 52
+      responses:
+        '200':
+          description: ok
+  /endpoint-53:
+    get:
+      summary: endpoint 53
+      responses:
+        '200':
+          description: ok
+  /endpoint-54:
+    get:
+      summary: endpoint 54
+      responses:
+        '200':
+          description: ok
+  /endpoint-55:
+    get:
+      summary: endpoint 55
+      responses:
+        '200':
+          description: ok
+  /endpoint-56:
+    get:
+      summary: endpoint 56
+      responses:
+        '200':
+          description: ok
+  /endpoint-57:
+    get:
+      summary: endpoint 57
+      responses:
+        '200':
+          description: ok
+  /endpoint-58:
+    get:
+      summary: endpoint 58
+      responses:
+        '200':
+          description: ok
+  /endpoint-59:
+    get:
+      summary: endpoint 59
+      responses:
+        '200':
+          description: ok
+  /endpoint-60:
+    get:
+      summary: endpoint 60
+      responses:
+        '200':
+          description: ok
+  /endpoint-61:
+    get:
+      summary: endpoint 61
+      responses:
+        '200':
+          description: ok
+  /endpoint-62:
+    get:
+      summary: endpoint 62
+      responses:
+        '200':
+          description: ok
+  /endpoint-63:
+    get:
+      summary: endpoint 63
+      responses:
+        '200':
+          description: ok
+  /endpoint-64:
+    get:
+      summary: endpoint 64
+      responses:
+        '200':
+          description: ok
+  /endpoint-65:
+    get:
+      summary: endpoint 65
+      responses:
+        '200':
+          description: ok
+  /endpoint-66:
+    get:
+      summary: endpoint 66
+      responses:
+        '200':
+          description: ok
+  /endpoint-67:
+    get:
+      summary: endpoint 67
+      responses:
+        '200':
+          description: ok
+  /endpoint-68:
+    get:
+      summary: endpoint 68
+      responses:
+        '200':
+          description: ok
+  /endpoint-69:
+    get:
+      summary: endpoint 69
+      responses:
+        '200':
+          description: ok
+  /endpoint-70:
+    get:
+      summary: endpoint 70
+      responses:
+        '200':
+          description: ok
+  /endpoint-71:
+    get:
+      summary: endpoint 71
+      responses:
+        '200':
+          description: ok
+  /endpoint-72:
+    get:
+      summary: endpoint 72
+      responses:
+        '200':
+          description: ok
+  /endpoint-73:
+    get:
+      summary: endpoint 73
+      responses:
+        '200':
+          description: ok
+  /endpoint-74:
+    get:
+      summary: endpoint 74
+      responses:
+        '200':
+          description: ok
+  /endpoint-75:
+    get:
+      summary: endpoint 75
+      responses:
+        '200':
+          description: ok
+  /endpoint-76:
+    get:
+      summary: endpoint 76
+      responses:
+        '200':
+          description: ok
+  /endpoint-77:
+    get:
+      summary: endpoint 77
+      responses:
+        '200':
+          description: ok
+  /endpoint-78:
+    get:
+      summary: endpoint 78
+      responses:
+        '200':
+          description: ok
+  /endpoint-79:
+    get:
+      summary: endpoint 79
+      responses:
+        '200':
+          description: ok

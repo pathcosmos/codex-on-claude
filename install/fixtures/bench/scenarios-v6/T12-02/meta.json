@@ -1,0 +1,14 @@
+{
+  "id": "T12-02",
+  "template": "T12",
+  "category": "Code review (subtle bugs)",
+  "hypothesis_target": "P2_adversarial_revised",
+  "params": {
+    "id": "T12-02",
+    "domain": "auth-token",
+    "subtle_bug": "timing_attack",
+    "alpha_target_pct": "85",
+    "decoys": 1
+  },
+  "generated_at": "2026-05-21T07:58:47.937Z"
+}

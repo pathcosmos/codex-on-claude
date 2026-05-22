@@ -1,0 +1,8 @@
+{
+  "id": "LB-11",
+  "template": "LLM",
+  "category": "Memory leak",
+  "hypothesis_target": "NEW",
+  "generated_at": "2026-05-21T00:35:29.968Z",
+  "generator": "B"
+}

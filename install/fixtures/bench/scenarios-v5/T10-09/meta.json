@@ -1,0 +1,13 @@
+{
+  "id": "T10-09",
+  "template": "T10",
+  "category": "SQL query optimization",
+  "hypothesis_target": "NEW",
+  "params": {
+    "id": "T10-09",
+    "antipattern": "in-subquery-large-set",
+    "dialect": "postgres",
+    "tables": 2
+  },
+  "generated_at": "2026-05-21T00:00:58.803Z"
+}

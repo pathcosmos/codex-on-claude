@@ -1,0 +1,1 @@
+if (name.compareTo(other) == 0) { ... } // ASCII-style comparison, breaks for accented chars

@@ -1,0 +1,1 @@
+Use /codex-review to document all error paths and recovery strategies. List all exception types, causes, handling decisions, and recovery options. Map the complete error decision tree. Return JSON with: error_scenarios (array with error_type, cause, handling_strategy, recovery_possible).

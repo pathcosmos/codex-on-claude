@@ -1,0 +1,15 @@
+{
+  "id": "R02",
+  "template": "R",
+  "category": "Code review",
+  "hypothesis_target": "NEW_real_codebase",
+  "source": {
+    "path": "/Volumes/minim42tbtmm/pathcosmos/codex-on-claude/install/templater.mjs",
+    "focus": "template substitution logic"
+  },
+  "params": {
+    "task": "review",
+    "focus": "template substitution logic"
+  },
+  "generated_at": "2026-05-21T10:12:30.557Z"
+}

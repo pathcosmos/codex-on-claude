@@ -1,0 +1,14 @@
+{
+  "id": "T02-06",
+  "template": "T02",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P2_adversarial",
+  "params": {
+    "id": "T02-06",
+    "domain": "rate-window-slide",
+    "subtle_bug": "off_by_one_at_boundary",
+    "lang": "js",
+    "decoys": 2
+  },
+  "generated_at": "2026-05-20T14:30:11.149Z"
+}

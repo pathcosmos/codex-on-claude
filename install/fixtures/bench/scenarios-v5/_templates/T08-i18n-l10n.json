@@ -1,0 +1,19 @@
+{
+  "id": "T08",
+  "name": "i18n-l10n",
+  "category": "Internationalization (i18n)",
+  "hypothesis_target": "NEW",
+  "description": "Code audit for i18n/l10n issues: hardcoded strings, locale-sensitive operations, RTL handling, plural rules.",
+  "param_combos": [
+    { "id": "T08-01", "issue": "hardcoded-strings", "lang": "js", "n_violations": 4 },
+    { "id": "T08-02", "issue": "date-format-locale", "lang": "py", "n_violations": 3 },
+    { "id": "T08-03", "issue": "currency-locale", "lang": "ts", "n_violations": 3 },
+    { "id": "T08-04", "issue": "plural-rules", "lang": "js", "n_violations": 4 },
+    { "id": "T08-05", "issue": "rtl-direction", "lang": "html", "n_violations": 3 },
+    { "id": "T08-06", "issue": "tolower-locale", "lang": "java", "n_violations": 3 },
+    { "id": "T08-07", "issue": "number-format", "lang": "py", "n_violations": 4 },
+    { "id": "T08-08", "issue": "timezone-naive", "lang": "py", "n_violations": 3 },
+    { "id": "T08-09", "issue": "encoding-assumption", "lang": "go", "n_violations": 3 },
+    { "id": "T08-10", "issue": "comparison-locale", "lang": "java", "n_violations": 4 }
+  ]
+}

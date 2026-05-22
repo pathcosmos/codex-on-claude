@@ -1,0 +1,15 @@
+{
+  "scenario": "D4-analyze-improve-loop",
+  "notes": "Seed logs are crafted to trigger `ruleRepeatedPrompts` (9 same-skill same-sandbox entries) AND `ruleLargeResponsesNotAgent` (≥3 entries with responseChars≥5000 viaAgent=false). β should leverage codex-analyze; α has to manually pattern-match.",
+  "criteria": [
+    { "name": "candidate_id_present", "type": "final_json_field", "args": { "field": "candidate_id" } },
+    { "name": "category_one_of", "type": "final_json_field", "args": { "field": "category", "in": ["token-efficiency", "reliability", "cost", "redundancy", "other"] } },
+    { "name": "mentions_repeated_or_large", "type": "contains_text", "args": { "needle": "repeat" } },
+    { "name": "mentions_response_or_token", "type": "contains_text", "args": { "needle": "response" } },
+    { "name": "beta_analyzer_invoked_field", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "final_json_field",
+        "inner_args": { "field": "analyzer_invoked", "equals": true }
+    } }
+  ]
+}

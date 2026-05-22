@@ -1,0 +1,39 @@
+{
+  "scenario": "T13-02",
+  "notes": "T13 α-fail-dial — 2-color-graph, constraints=2, α=90%",
+  "criteria": [
+    {
+      "name": "mentions_constraint",
+      "type": "contains_text",
+      "args": {
+        "needle": "constraint"
+      }
+    },
+    {
+      "name": "mentions_verify",
+      "type": "contains_text",
+      "args": {
+        "needle": "verif"
+      }
+    },
+    {
+      "name": "mentions_problem_term",
+      "type": "contains_text",
+      "args": {
+        "needle": "2"
+      }
+    },
+    {
+      "name": "beta_codex_called",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

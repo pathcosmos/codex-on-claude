@@ -1,0 +1,13 @@
+{
+  "id": "AV07",
+  "template": "AV",
+  "category": "Adversarial review (non-T12)",
+  "hypothesis_target": "P2_generalizability",
+  "params": {
+    "id": "AV07",
+    "domain": "race-double-spend",
+    "subtle_bug": "no_atomic_decrement",
+    "lang": "go"
+  },
+  "test": "does adversarial framing generalize beyond T12 template?"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "T05-08",
+  "template": "T05",
+  "category": "TDD / Test generation",
+  "hypothesis_target": "P4_tdd_followup",
+  "params": {
+    "id": "T05-08",
+    "module": "ip-cidr-parser",
+    "lang": "rs",
+    "edge_cases": 4
+  },
+  "generated_at": "2026-05-20T14:30:11.164Z"
+}

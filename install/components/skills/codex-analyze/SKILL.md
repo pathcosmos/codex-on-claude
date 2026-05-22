@@ -7,6 +7,13 @@ description: Use to analyze the local Codex usage log and surface improvement ca
 
 Read the local JSONL usage log under `~/.claude/codex-on-claude/logs/` and surface concrete improvement candidates the user can adopt or reject.
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+This Skill is **read-only on local files** and is allowed in every mode, including `none`. It does not call Codex; it parses logs already on disk. In `max` mode, the analyzer is run periodically by default to surface improvement candidates faster.
+
+The new `ruleUsageModeDrift` rule (v0.5.0) flags mismatches like "mode=none but Codex calls were logged" or "mode=max but no calls observed".
+
 ## What it analyzes
 
 Five dimensions:

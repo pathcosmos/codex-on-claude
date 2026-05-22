@@ -1,0 +1,1 @@
+SELECT * FROM products WHERE sku = 12345; -- sku is VARCHAR but query uses integer

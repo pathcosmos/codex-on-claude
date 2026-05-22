@@ -1,0 +1,47 @@
+{
+  "scenario": "T10-10",
+  "notes": "T10 SQL opt — missing-limit/mysql, 1 tables",
+  "criteria": [
+    {
+      "name": "antipattern_matches",
+      "type": "final_json_field",
+      "args": {
+        "field": "antipattern",
+        "equals": "missing-limit"
+      }
+    },
+    {
+      "name": "optimization_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "optimization"
+      }
+    },
+    {
+      "name": "improved_query_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "improved_query_sketch"
+      }
+    },
+    {
+      "name": "mentions_keyword",
+      "type": "contains_text",
+      "args": {
+        "needle": "missing"
+      }
+    },
+    {
+      "name": "beta_called_codex",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

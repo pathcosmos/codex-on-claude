@@ -1,0 +1,1 @@
+Use /codex-review to identify state machine bugs. Find incorrect transitions and edge cases. Show problematic input sequences. Explain correct behavior and provide fixes. Return JSON with: bugs (array with state, issue, problematic_input, correct_transition).

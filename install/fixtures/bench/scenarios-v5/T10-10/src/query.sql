@@ -1,0 +1,1 @@
+SELECT * FROM logs WHERE level = 'ERROR' ORDER BY timestamp DESC; -- could return millions

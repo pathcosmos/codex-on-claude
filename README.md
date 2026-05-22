@@ -23,9 +23,9 @@ npx --yes codex-on-claude@latest
 The installer:
 
 1. Runs preflight — Node 18.17+, `codex`, `claude`, `codex doctor`, `claude auth status`, and the `codex` MCP server's `Connected` status.
-2. Walks you through **four questions** with arrow-key navigation (↑/↓, Space to toggle, Enter to confirm).
+2. Walks you through **seven questions** with arrow-key navigation (↑/↓, Space to toggle, Enter to confirm). v0.5.0 adds question §7 (`usageMode`) — Codex invocation policy (`none / synergy / auto / max`). Existing installs that upgrade migrate silently to `synergy` (current behavior preserved).
 3. Shows a final review screen with `Apply / Edit again / Cancel`.
-4. Copies the selected Skills (and optional Agent / hooks) under `~/.claude/`.
+4. Copies the selected Skills (and optional Agent / hooks / PreToolUse gate when `usageMode=none`) under `~/.claude/`.
 
 Run the same command any time to update + reconfigure — if prior state is found, the installer prints a `vPREV → vCURR` banner and walks you through previous answers as defaults. Or use `codex-on-claude reconfigure` explicitly.
 
@@ -98,6 +98,8 @@ codex-on-claude \
   --context-policy=mixed \
   --improvement-loop=manual \
   --threads=basic \
+  --usage-mode=synergy \
+  --auto-tier2-llm-probe=on \
   --subscription-claude=max --subscription-codex=pro \
   --codex-model-primary=gpt-5.5 --codex-reasoning-primary=xhigh \
   --reviewer-model-primary=opus --reviewer-reasoning-primary=xhigh \
@@ -137,6 +139,8 @@ The `--subscription-*` flags declare what you actually have access to. The `--*-
 Each answer is also a CLI flag for non-interactive use. Reconfigure later with `codex-on-claude reconfigure` — your previous answers come back pre-selected.
 
 > v0.4.1 raises the count from 4 to 6 (subscription + primary model / reasoning per side). All new questions live below the original four; the originals still work the same way.
+>
+> **v0.5.0** adds question §7 (`usageMode`) — Codex invocation policy. Existing installs migrate silently to `synergy` (no prompt); explicit `reconfigure` surfaces the new question.
 
 ### 1. patterns (multi-select)
 
@@ -224,6 +228,65 @@ How fallback fires:
 You can pass `--codex-model-fallback=...` etc. but values that don't match the matrix base are ignored with a warning — the lock is intentional. To "unlock" the fallback, raise your subscription tier (which raises the base).
 
 Fallback events accrue in the usage log (`outcome=fallback`, `errorKind=quota|rate_limit|...`). `codex-on-claude analyze` surfaces a `ruleFrequentFallback` candidate at ≥5 events in the window — your hint to upgrade or de-tune the primary.
+
+### 7. usage-mode — Codex invocation policy (v0.5.0)
+
+How aggressively Claude consults Codex. Pick one of four:
+
+| Mode | One-line definition | Default? | Behavior summary |
+|---|---|---|---|
+| `none` | Codex calls blocked at PreToolUse gate | — | α-only. Privacy / cost-sensitive use. The PreToolUse hook denies `mcp__codex__codex` with a structured reason. |
+| `synergy` | Follow v9 guidance (Quick-Ref 3-Q tree + R1–R6 recipes) | **default for new installs + silent migration default** | 90% sweet spot. Codex fires only when matched recipes apply (adversarial review, sweet-spot partial-fail, hard reasoning). |
+| `auto` | Heuristic signal detection + optional Tier 2 LLM probe | for power users | Tier 1: heuristic regex over prompt. Tier 2 (`--auto-tier2-llm-probe=on`): $0.01–0.02 Codex meta-classifier on ambiguous tasks. |
+| `max` | Quality-first bounded automation | for critical tasks | R1 default ON; R5 always probe; γ hot-swap auto on P5 catastrophe. **Hard DO-NOT rules still enforced** — max ≠ override. |
+
+Flags: `--usage-mode=none|synergy|auto|max` and (auto-only) `--auto-tier2-llm-probe=on|off`.
+
+**Hard guardrails (every mode)** — surfaced as `{{guardrail*}}` placeholders in every SKILL.md:
+- `chainJsonTrap`: hard-block (avoid Chain-JSON Trap, route to R6 Format-Safe Handoff)
+- `subagentStrict`: hard-block (don't ask subagent for strict-JSON when adversarial output is also needed)
+- `turnBurn`: 3-turn-stop (stop multi-turn followups at turn 3 unless new context arrived)
+- `ceilingNoUpside`: warn-and-skip (when α is ≈100% already, β can only equal it)
+
+Detailed spec + decision tree: [`docs/usage-mode-config.md`](docs/usage-mode-config.md). Quick decision card: [`docs/guidance-quick-ref.md`](docs/guidance-quick-ref.md). Recipe details: [`docs/synergy-playbook.md`](docs/synergy-playbook.md).
+
+Existing installs (pre-0.5.0) migrate silently to `synergy` on the next `npx --yes codex-on-claude@latest` — no prompt, no behavior change. Run `codex-on-claude reconfigure` if you want to surface the new question.
+
+#### v0.5.0 hardening (post-L6 review — 14 follow-up fixes)
+
+Beyond the headline 4-mode policy, v0.5.0 ships a comprehensive set of fixes from a Codex peer review pass + adversarial security review. User-visible changes:
+
+- **PreToolUse gate is race-free.** The hook command embeds `--enforce-mode=none` at install time so the gate decision never depends on a separate `config.json` read. Mode toggles do not race in-flight calls.
+- **Gate covers Bash CLI bypasses.** `mode=none` blocks not only `mcp__codex__codex` MCP calls but also any `Bash` invocation whose command contains `codex exec`, `codex-on-claude threads resume`, `npx ...codex...`, or path-qualified codex binaries. Wildcard regex (`mcp__codex__.*`) handles current + future MCP tool variants. Case-insensitive matching.
+- **Gate fails CLOSED for Codex-shaped tools on corrupt state.** When `config.json` is unreadable or the hook payload is malformed AND the tool looks Codex-shaped, the gate denies (was: fail-OPEN). Non-Codex tools still fail-open to avoid breaking unrelated calls.
+- **Gate state reconciles automatically.** Every reconfigure inspects `~/.claude/settings.json` itself (not just `config.json`'s claim) and removes orphan gate entries from manual edits / stale state.
+- **Hook decision JSON emitted in BOTH legacy and new shapes.** `{decision, reason}` + `hookSpecificOutput.permissionDecision` so the gate works against current Claude Code 2.1.x and any future version that drops legacy support. Hard-denies additionally `exit(2)` with stderr backstop.
+- **State directories are 0700.** Logs (which may capture prompt sizes / thread IDs) + thread catalog + improvements are now restricted to user-only access. Best-effort on filesystems that ignore chmod.
+- **Atomic config writes.** `config.json`, `settings.json`, and thread catalog files are written via `temp+rename`; concurrent readers (analyzer, status, gate) never see a torn JSON document.
+- **CLI parsing hardening.** `--usage-mode max` (space-separated, common mistake) now errors with a hint to use `--usage-mode=max`. Use `=` to assign flag values; positional args are rejected against an explicit known-subcommand allowlist.
+- **Silent-fill info line.** Upgrading users see `usageMode: silent default 'synergy' applied for upgrade` on auto-detected reconfigures (npx upgrade path). Explicit `reconfigure` still surfaces the §7 prompt.
+- **`auto` mode classifier sharper.** Tier 1 heuristics now handle: chain step variants (numbered / lettered / first-then-finally / inline "Step N:"); mixed adversarial+style prompts ("find security bugs and naming issues" keeps adversarial signal); unquoted field-list syntax ("Return fields: status, risk, file, line"); "table" only with output-intent context; plural forms ("race conditions", "failing tests"); excluded "edge cases" alone from TDD signal.
+- **Every log row carries `usageMode`.** `usage-*.jsonl` entries include the active mode at log time, powering the `ruleUsageModeDrift` analyzer rule.
+- **`ruleUsageModeDrift` filters by `config.updatedAt`.** Logs from before the last reconfigure no longer trigger false-positive drift right after a mode switch.
+
+Full details: [`docs/release-notes-0.5.0.md`](docs/release-notes-0.5.0.md) + [`docs/security-review-0.5.0.md`](docs/security-review-0.5.0.md).
+
+**Final verification (post 5 Codex peer review cycles)**: **168 automated test cases** (112 unit + 37 integration + 17 installer-flow + 2 regression with 7 internal cases) all PASS. npm tarball **115 kB / 32 files** (99% reduction from initial build via explicit `files` allowlist + `.npmignore`). **28 total fixes** applied pre-ship across 5 review cycles (F1-F8 → G1-G7 → H1-H7 → B1-B6 → H1-H4 Bash precision → M1-M3 → A1-A4 — see [CHANGELOG.md](CHANGELOG.md) for the full breakdown). Run all tests yourself: `bash install/fixtures/v05/installer-flow/run-flow.sh && node install/fixtures/v05/unit/run-units.mjs && ...`.
+
+---
+
+## Operational guidance (v0.5.0)
+
+The v5–v9 analysis series in [`docs/`](docs/) captures **771 runs across 217 scenarios** (~\$100–115 in measured external cost). Key references for everyday decisions:
+
+| Read this when | File |
+|---|---|
+| 30-second decision card for one task | [`docs/guidance-quick-ref.md`](docs/guidance-quick-ref.md) |
+| Detailed comparison (Claude α / Codex γ / β orchestration) | [`docs/guidance-comparison.md`](docs/guidance-comparison.md) |
+| Practical recipes (R1 Adversarial / R2 Self-review / R3 reasoning=high / R4 γ hot-swap / R5 cheap β trial / R6 Format-Safe Handoff) | [`docs/synergy-playbook.md`](docs/synergy-playbook.md) |
+| Mode configuration spec (what every mode does, per-skill activation matrix) | [`docs/usage-mode-config.md`](docs/usage-mode-config.md) |
+| Cross-domain validation results (post-v8 sweep) | [`docs/v8-validation-sweep.md`](docs/v8-validation-sweep.md) |
+| Why these recommendations changed in v9 | [`docs/v9-adjustment-spec.md`](docs/v9-adjustment-spec.md) |
 
 ---
 

@@ -1,0 +1,15 @@
+{
+  "id": "R05_slice",
+  "template": "R",
+  "category": "Code review",
+  "hypothesis_target": "NEW_real_codebase",
+  "source": {
+    "path": "/Volumes/minim42tbtmm/pathcosmos/codex-on-claude/install/install.mjs",
+    "focus": "reconfigure flow + CLI flag handling"
+  },
+  "params": {
+    "task": "review",
+    "focus": "reconfigure flow + CLI flag handling"
+  },
+  "generated_at": "2026-05-21T10:12:30.559Z"
+}

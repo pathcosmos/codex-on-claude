@@ -1,0 +1,16 @@
+{
+  "scenario": "E8-long-thread-debug",
+  "notes": "10-turn debugging on distributed cache invalidation. Root cause = CDN cache-control headers. β uses sticky threadId across all 10 turns via codex-reply.",
+  "criteria": [
+    { "name": "turns_completed_10", "type": "final_json_field", "args": { "field": "turns_completed", "equals": 10 } },
+    { "name": "root_cause_field", "type": "final_json_field", "args": { "field": "root_cause_layer", "in": ["cdn", "edge", "browser"] } },
+    { "name": "mentions_cdn_or_cache_control", "type": "contains_text", "args": { "needle": "cdn" } },
+    { "name": "mentions_invalidation", "type": "contains_text", "args": { "needle": "invalid" } },
+    { "name": "fix_proposed_field", "type": "final_json_field", "args": { "field": "fix_proposed" } },
+    { "name": "beta_codex_reply_count", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": { "name": "mcp__codex__codex-reply", "min": 3 }
+    } }
+  ]
+}

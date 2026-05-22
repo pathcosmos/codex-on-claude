@@ -7,6 +7,11 @@ description: Use after any mcp__codex__codex or mcp__codex__codex-reply call to 
 
 Append a single line of Codex-call metadata to the local JSONL log. Local-only, no external transport. Feeds `/codex-analyze` and the improvement-suggestion engine.
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+This Skill writes to local files only and is allowed in every mode, including `none` (so users can still log a manual α-only event for analyzer correlation). v0.5.0 adds a `usageMode` field to every log entry so analyzer can detect drift.
+
 ## When this runs
 - Other `codex-*` Skills call it right after a Codex MCP invocation (when `improvementLoop=manual`)
 - The user invokes `/codex-log` to add an entry manually

@@ -1,0 +1,28 @@
+{
+  "scenario": "T07-08",
+  "notes": "T07 ceiling baseline — rename-variable/py",
+  "criteria": [
+    {
+      "name": "answer_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "answer"
+      }
+    },
+    {
+      "name": "task_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "task",
+        "equals": "rename-variable"
+      }
+    },
+    {
+      "name": "mentions_task_keyword",
+      "type": "contains_text",
+      "args": {
+        "needle": "rename"
+      }
+    }
+  ]
+}

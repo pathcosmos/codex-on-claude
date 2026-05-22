@@ -1,0 +1,1 @@
+Use /codex-review to analyze for memory leaks. Focus on closures, event listener lifecycle, and reference retention. Identify what persists in memory and why it cannot be garbage collected. Provide fixed version. Return JSON with: leak_location, explanation, severity, fix.

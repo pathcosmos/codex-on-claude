@@ -1,0 +1,39 @@
+{
+  "scenario": "T15-03",
+  "notes": "T15 α-fail-dial — trie-w-prefix, explicit=2, hidden=2, α=65%",
+  "criteria": [
+    {
+      "name": "tests_pass_json",
+      "type": "final_json_field",
+      "args": {
+        "field": "tests_pass",
+        "equals": true
+      }
+    },
+    {
+      "name": "tests_added_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "tests_added"
+      }
+    },
+    {
+      "name": "mentions_edge",
+      "type": "contains_text",
+      "args": {
+        "needle": "edge"
+      }
+    },
+    {
+      "name": "beta_finds_hidden",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "final_json_field",
+        "inner_args": {
+          "field": "hidden_cases_found"
+        }
+      }
+    }
+  ]
+}

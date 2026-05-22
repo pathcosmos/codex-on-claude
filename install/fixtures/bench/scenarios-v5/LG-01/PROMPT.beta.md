@@ -1,0 +1,4 @@
+Use Claude+Codex orchestration for a stricter manifest review. Prefer running /codex-review or an equivalent Codex inspection pass over the YAML, then synthesize only the defects that matter for production safety. Look for selector mismatches, rollout hazards, probe/resource gaps, secret handling, and image pinning. Do not produce a wholesale manifest unless necessary; return concise remediation guidance. Return only JSON matching this schema:
+```json
+{"findings":[{"severity":"P0|P1|P2|P3","file":"deployment.yaml","issue":"","impact":"","fix":""}],"overall_risk":"low|medium|high","safe_to_apply":false}
+```

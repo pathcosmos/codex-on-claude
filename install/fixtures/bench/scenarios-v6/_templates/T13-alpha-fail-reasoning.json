@@ -1,0 +1,15 @@
+{
+  "id": "T13",
+  "name": "alpha-fail-reasoning",
+  "category": "Hard reasoning",
+  "hypothesis_target": "P3_reasoning_high_revised",
+  "description": "Reasoning puzzle with α partial-fail dial via constraint count + verification difficulty.",
+  "design_principle": "Same problem type (constraint satisfaction). Constraint count + interlocking depth vary.",
+  "param_combos": [
+    { "id": "T13-01", "problem": "1-color-graph", "constraints": 1, "alpha_target_pct": "100" },
+    { "id": "T13-02", "problem": "2-color-graph", "constraints": 2, "alpha_target_pct": "90" },
+    { "id": "T13-03", "problem": "3-color-w-forbid", "constraints": 3, "alpha_target_pct": "70" },
+    { "id": "T13-04", "problem": "interval-sched-w-priority", "constraints": 5, "alpha_target_pct": "50" },
+    { "id": "T13-05", "problem": "queens-4stack-w-color", "constraints": 7, "alpha_target_pct": "30" }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "scenario": "D3-token-efficiency",
+  "notes": "Tests main-context token bloat. access.log is ~90K tokens — α ingests it directly (huge tool_result p95), β delegates to a subagent and only sees a summary (small tool_result p95).",
+  "criteria": [
+    { "name": "json_top_endpoints_3", "type": "final_json_array_min", "args": { "field": "top_endpoints", "min": 3 } },
+    { "name": "json_top_error_users", "type": "final_json_array_min", "args": { "field": "top_error_users", "min": 1 } },
+    { "name": "json_time_range_present", "type": "final_json_array_min", "args": { "field": "time_range", "min": 2 } },
+    { "name": "mentions_api_v1", "type": "contains_text", "args": { "needle": "/api/v1/" } },
+    { "name": "alpha_main_context_bloated", "type": "arm_specific", "args": {
+        "arm": "alpha",
+        "inner_type": "tool_call_response_size_p95_max",
+        "inner_args": { "max_chars": 1000000 }
+    } },
+    { "name": "beta_main_context_protected", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_response_size_p95_max",
+        "inner_args": { "max_chars": 10000 }
+    } },
+    { "name": "beta_delegated_field", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "final_json_field",
+        "inner_args": { "field": "delegated_to", "in": ["codex-reviewer", "mcp__codex__codex"] }
+    } }
+  ]
+}

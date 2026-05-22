@@ -9,6 +9,13 @@ model: {{reviewerPrimaryModel}}
 
 Isolate large Codex calls in a separate context so the main Claude session stays small. Returns only a short summary to the caller — never the raw Codex response.
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+- `none` — Refuse to start. Reply with a single line: `Codex calls are disabled (usageMode=none). Have the main session handle the review with α-only tools.`
+- `synergy` / `auto` — Allowed; honor the **P-Subagent-Strict guardrail** (`{{guardrailSubagent}}`) — when the caller asks for strict-JSON output, use **R6 Format-Safe Handoff** (return Codex prose to the main session, let Claude reformat) instead of asking Codex for strict JSON directly.
+- `max` — R1 adversarial framing is on by default ("find subtle bugs from the semantics, not just surface issues"). On chain+strict prompts the main session will route to **R4 γ hot-swap** before this agent is invoked; if you're already running, you can still emit prose (let the main session reformat) to avoid the Chain-JSON Trap.
+
 ## When the main session should call this agent
 - The diff is large (e.g. tens of KB) or spans multiple directories
 - 5+ files reviewed in a single pass

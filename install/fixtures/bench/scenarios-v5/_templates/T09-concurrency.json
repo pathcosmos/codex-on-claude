@@ -1,0 +1,19 @@
+{
+  "id": "T09",
+  "name": "concurrency-race",
+  "category": "Concurrency / race condition",
+  "hypothesis_target": "P3_reasoning_high",
+  "description": "Race condition / concurrency bug detection. Tests if Codex reasoning catches subtle ordering issues.",
+  "param_combos": [
+    { "id": "T09-01", "bug_type": "lost-update", "lang": "go", "subtlety": "low" },
+    { "id": "T09-02", "bug_type": "double-checked-locking", "lang": "java", "subtlety": "medium" },
+    { "id": "T09-03", "bug_type": "iterate-while-modify", "lang": "py", "subtlety": "medium" },
+    { "id": "T09-04", "bug_type": "deadlock-acquire-order", "lang": "go", "subtlety": "high" },
+    { "id": "T09-05", "bug_type": "memory-visibility", "lang": "java", "subtlety": "high" },
+    { "id": "T09-06", "bug_type": "promise-race", "lang": "js", "subtlety": "medium" },
+    { "id": "T09-07", "bug_type": "tocttou", "lang": "py", "subtlety": "high" },
+    { "id": "T09-08", "bug_type": "stale-read-snapshot", "lang": "go", "subtlety": "medium" },
+    { "id": "T09-09", "bug_type": "atomic-not-atomic-compound", "lang": "java", "subtlety": "medium" },
+    { "id": "T09-10", "bug_type": "shared-mutable-state", "lang": "rs", "subtlety": "low" }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "$schema": "./manifest.schema.json",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "name": "codex-on-claude",
   "description": "Install bridge components that let Claude Code call OpenAI Codex CLI via MCP.",
   "modelMatrixVersion": "2026-05-20",
@@ -153,6 +153,61 @@
         { "key": "pro",  "label": "Pro — full Codex models + xhigh reasoning (recommended)" },
         { "key": "team", "label": "Team — same as Pro" }
       ]
+    },
+    "usageMode": {
+      "type": "single",
+      "label": "Codex invocation policy (how aggressively Claude consults Codex)",
+      "choices": [
+        {
+          "key": "none",
+          "label": "None — α only; Codex calls blocked at the hook gate (privacy / cost-sensitive)",
+          "blockCodex": true,
+          "activatesAllSkills": false
+        },
+        {
+          "key": "synergy",
+          "label": "Synergy — follow v9 guidance (Quick-Ref 3-Q tree + 5 recipes) (recommended)",
+          "blockCodex": false,
+          "activatesAllSkills": false,
+          "applyGuidance": true
+        },
+        {
+          "key": "auto",
+          "label": "Auto — heuristic signal detection (+ optional Tier 2 LLM probe on ambiguous tasks)",
+          "blockCodex": false,
+          "activatesAllSkills": false,
+          "applyGuidance": true,
+          "enableSignalDetection": true
+        },
+        {
+          "key": "max",
+          "label": "Max — quality-first bounded automation; R1/R5 always probe + γ hot-swap on catastrophe (hard DO-NOT rules still enforced)",
+          "blockCodex": false,
+          "activatesAllSkills": true,
+          "applyGuidance": true,
+          "enableSignalDetection": true,
+          "autoGammaHotSwap": true,
+          "alwaysProbe": true
+        }
+      ]
+    },
+    "autoTier2LLMProbe": {
+      "type": "single",
+      "label": "Auto-mode Tier 2 LLM probe (when heuristic confidence < 0.7)",
+      "choices": [
+        { "key": "on",  "label": "On — invoke Codex classifier (~$0.01-0.02 per probe)" },
+        { "key": "off", "label": "Off — Tier 1 heuristic only, no LLM probe" }
+      ]
+    },
+    "guardrails": {
+      "type": "info",
+      "label": "Hard rules enforced in every mode (not user-configurable)",
+      "defaults": {
+        "chainJsonTrap": "hard-block",
+        "subagentStrict": "hard-block",
+        "turnBurn": "3-turn-stop",
+        "ceilingNoUpside": "warn-and-skip"
+      }
     }
   },
   "agent": {

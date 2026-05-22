@@ -1,0 +1,1 @@
+Identify API contract violations between documentation and implementation. Compare JSDoc specification to actual function behavior. Find: parameter misuse, incomplete return objects, missing error handling, missing validation. List each violation with expected vs actual behavior and proposed fix. Return JSON with: violations (array with violation_type, expected, actual, fix).

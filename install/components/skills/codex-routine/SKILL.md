@@ -7,6 +7,13 @@ description: Use when the user wants to run the same Codex prompt template repea
 
 Standardize a Codex task so the same options and prompt boilerplate are reused instead of being re-typed each time.
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+- `none` — Routines that invoke Codex are blocked. You can still author the template (it's just YAML) but its runs will fail at the gate.
+- `synergy` / `auto` — Allowed; each run is subject to the same Quick-Ref tree as a one-shot invocation.
+- `max` — Routines are activated by default; ideal for periodic adversarial reviews of main-branch diffs.
+
 ## Use cases
 - Daily Codex security / quality review of `main` diff
 - Per-PR automatic second opinion

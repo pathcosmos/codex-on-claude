@@ -1,0 +1,55 @@
+{
+  "scenario": "R01",
+  "notes": "Real codebase extract — hooks.mjs, focus: hook merging + mixed-ownership safety",
+  "criteria": [
+    {
+      "name": "issues_min_3",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "issues",
+        "min": 3
+      }
+    },
+    {
+      "name": "issues_max_5",
+      "type": "final_json_array_max",
+      "args": {
+        "field": "issues",
+        "max": 5
+      }
+    },
+    {
+      "name": "total_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "total_issues_found"
+      }
+    },
+    {
+      "name": "mentions_focus_keyword",
+      "type": "contains_text",
+      "args": {
+        "needle": "hook"
+      }
+    },
+    {
+      "name": "has_severity",
+      "type": "contains_text",
+      "args": {
+        "needle": "severity"
+      }
+    },
+    {
+      "name": "beta_codex_called",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

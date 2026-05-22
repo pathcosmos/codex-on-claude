@@ -53,8 +53,19 @@ async function readJson(p) {
   return JSON.parse(await fs.readFile(p, "utf8"));
 }
 async function writeJson(p, obj) {
+  // H2 fix: atomic write via temp + rename so the gate / analyzer never reads a half-written
+  // config.json (e.g. during a reconfigure). rename(2) is atomic on POSIX within the same FS.
+  // A3 fix (final pre-ship): on rename failure (cross-FS, permission), clean up temp file
+  // so we don't leak `*.tmp-PID-TS` artifacts in the user's directories. Rethrow original error.
   await fs.mkdir(path.dirname(p), { recursive: true });
-  await fs.writeFile(p, JSON.stringify(obj, null, 2) + "\n");
+  const tmp = `${p}.tmp-${process.pid}-${Date.now()}`;
+  await fs.writeFile(tmp, JSON.stringify(obj, null, 2) + "\n");
+  try {
+    await fs.rename(tmp, p);
+  } catch (e) {
+    await fs.rm(tmp, { force: true }).catch(() => {});
+    throw e;
+  }
 }
 
 async function pathExists(p) {
@@ -213,6 +224,8 @@ function renderReviewTable(prev, draft, hasPrev) {
     ["contextPolicy", draft.contextPolicy, prev?.contextPolicy, false],
     ["improvementLoop", draft.improvementLoop, prev?.improvementLoop, false],
     ["threads", draft.threads, prev?.threads, false],
+    ["usageMode", draft.usageMode, prev?.usageMode, false],
+    ["autoTier2", draft.autoTier2LLMProbe ? "on" : "off", prev?.autoTier2LLMProbe === false ? "off" : (prev?.autoTier2LLMProbe === true ? "on" : undefined), false, draft.usageMode === "auto" ? "" : "(auto-mode only)"],
     ["sub: claude", draft.subscription?.claude, prev?.subscription?.claude, false],
     ["sub: codex", draft.subscription?.codex, prev?.subscription?.codex, false],
     ["codex primary", fmtModelSlot(draft.model?.codex?.primary), fmtModelSlot(prev?.model?.codex?.primary), false],
@@ -517,6 +530,18 @@ function buildModelVars(state) {
   // `model.<side>.<slot>.<field>` paths AND short aliases so Skill prose can
   // reference them ergonomically.
   const m = state.choices?.model || {};
+  const mode = state.choices?.usageMode || "synergy";
+  const guardrails = state.choices?.guardrails || {};
+  // v0.5.0: mode-aware prose snippets (read by SKILL.md preambles via {{modeBehavior}})
+  const modeBehaviorTable = {
+    none:    "🚫 Codex calls are blocked at the hook gate. This Skill returns to α without invoking Codex unless the user explicitly overrides.",
+    synergy: "🎯 Follow the v9 Quick-Ref 3-Q decision tree (ceiling → chain+strict → adversarial → partial-fail). Apply R1-R6 recipes when matched.",
+    auto:    "🔍 Detect signals first (`install/detect-signals.mjs`). If heuristic confidence < 0.7 and Tier 2 probe is on, classify via Codex before deciding.",
+    max:     "⚡ Quality-first bounded automation. R1 default ON for review tasks, R5 always probe, γ hot-swap on P5 catastrophe — hard DO-NOT rules still enforced.",
+  };
+  // L2-found: previous expression had a TDZ self-reference (`modeBehavior?.synergy` on the RHS of its own
+  // declaration). Now uses a separate table + explicit fallback chain so unknown modes degrade gracefully.
+  const modeBehavior = modeBehaviorTable[mode] || modeBehaviorTable.synergy || "(unknown mode)";
   return {
     subscription: state.choices?.subscription || {},
     model: m,
@@ -529,6 +554,14 @@ function buildModelVars(state) {
     reviewerPrimaryReasoning: m.reviewer?.primary?.reasoning,
     reviewerFallbackModel: m.reviewer?.fallback?.id,
     reviewerFallbackReasoning: m.reviewer?.fallback?.reasoning,
+    // v0.5.0 usage-mode placeholders
+    usageMode: mode,
+    modeBehavior,
+    autoTier2LLMProbe: state.choices?.autoTier2LLMProbe === false ? "off" : "on",
+    guardrailChainJson: guardrails.chainJsonTrap || "hard-block",
+    guardrailSubagent: guardrails.subagentStrict || "hard-block",
+    guardrailTurnBurn: guardrails.turnBurn || "3-turn-stop",
+    guardrailCeiling: guardrails.ceilingNoUpside || "warn-and-skip",
   };
 }
 
@@ -539,16 +572,42 @@ async function applyInstallation(manifest, choices, previousState) {
   const desiredThreads = threadsEnabled(manifest, choices.threads);
   const templateVars = buildModelVars({ choices });
 
+  // H7 fix: restrict state directories to user-only (0700). README claims this; without it
+  // logs (which may contain prompts) + thread catalogs would be world-readable on a shared box.
+  // Best-effort: errors are swallowed (POSIX chmod is a no-op on some FS, e.g. fat32).
+  async function ensureDir(dir) {
+    await fs.mkdir(dir, { recursive: true });
+    try { await fs.chmod(dir, 0o700); } catch { /* best-effort */ }
+  }
+  await ensureDir(STATE_DIR);
+
   if (desiredLogging) {
-    await fs.mkdir(path.join(STATE_DIR, "logs"), { recursive: true });
-    await fs.mkdir(path.join(STATE_DIR, "reports"), { recursive: true });
-    await fs.mkdir(path.join(STATE_DIR, "improvements"), { recursive: true });
+    await ensureDir(path.join(STATE_DIR, "logs"));
+    await ensureDir(path.join(STATE_DIR, "reports"));
+    await ensureDir(path.join(STATE_DIR, "improvements"));
   }
   if (desiredThreads) {
-    await fs.mkdir(path.join(STATE_DIR, "threads"), { recursive: true });
+    await ensureDir(path.join(STATE_DIR, "threads"));
   }
 
-  const installed = { skills: [], agent: null, removed: [] };
+  const installed = { skills: [], agent: null, removed: [], helpers: [] };
+
+  // A2 fix (final pre-ship): copy auto-mode helper modules into the well-known install path.
+  // SKILL.md auto-mode preamble references `node ~/.claude/codex-on-claude/install/detect-signals.mjs`;
+  // without these copies, that path is empty and Claude's auto-mode classification fails silently.
+  // Idempotent — re-running overwrites with the current package version (intentional: keep helpers in sync).
+  const helperSrcs = [
+    ["detect-signals.mjs", path.join(__dirname, "detect-signals.mjs")],
+    ["auto-probe.mjs", path.join(__dirname, "auto-probe.mjs")],
+  ];
+  const helperDstDir = path.join(STATE_DIR, "install");
+  await ensureDir(helperDstDir);
+  for (const [name, src] of helperSrcs) {
+    if (await pathExists(src)) {
+      await fs.copyFile(src, path.join(helperDstDir, name));
+      installed.helpers.push(name);
+    }
+  }
 
   // Skills install / diff
   const previousSkills = new Set((previousState?.installed?.skills) || []);
@@ -640,6 +699,47 @@ async function applyInstallation(manifest, choices, previousState) {
     }
   }
 
+  // v0.5.0: PreToolUse usage-mode gate.
+  // H2 fix: bake the enforce-mode into the hook command so the gate decision is race-free.
+  //   When mode=none, the gate command is `... gate --from-stdin --enforce-mode=none` — the
+  //   gate trusts this flag and never reads config.json, eliminating the toggle-race window
+  //   between settings.json and config.json writes.
+  // H3 fix: ALWAYS reconcile against actual settings.json state (not just previousState claim).
+  //   Previously `installed.gateHooks=false` in state would skip cleanup even when settings.json
+  //   actually had stale gate entries from manual edits or prior installs.
+  const gateBase = cocBin
+    ? `${cocBin} gate --from-stdin`
+    : `node ${path.resolve(__dirname, "install.mjs")} gate --from-stdin`;
+  const gateCommand = choices.usageMode === "none" ? `${gateBase} --enforce-mode=none` : gateBase;
+
+  let actualGateState;
+  try { actualGateState = await hooks.gateStatus(); }
+  catch (e) { actualGateState = { present: 0 }; warn(`Could not read gate state: ${e.message}`); }
+
+  if (choices.usageMode === "none") {
+    try {
+      // installGate is idempotent (strips prior marker entries first) so re-running is safe.
+      const r = await hooks.installGate({ command: gateCommand });
+      ok(`PreToolUse gate installed (${r.addedGroups}): mode=none blocks Codex MCP + Bash CLI calls`);
+      installed.gateHooks = true;
+    } catch (e) {
+      err(`PreToolUse gate installation failed: ${e.message}`);
+    }
+  } else {
+    // Mode is not 'none' — gate should not exist. Reconcile actual state regardless of previousState claim.
+    if (actualGateState.present > 0) {
+      try {
+        const r = await hooks.removeGate();
+        info(`PreToolUse gate reconciled (removed ${r.removedGroups}) — mode=${choices.usageMode} does not need enforcement`);
+        installed.gateHooks = false;
+      } catch (e) {
+        err(`PreToolUse gate removal failed: ${e.message}`);
+      }
+    } else {
+      installed.gateHooks = false;
+    }
+  }
+
   return installed;
 }
 
@@ -655,6 +755,7 @@ async function cmdStatus() {
   log(`  contextPolicy: ${state.choices.contextPolicy}`);
   log(`  improvementLoop: ${state.choices.improvementLoop || "(unset)"}`);
   log(`  threads: ${state.choices.threads || "(unset)"}`);
+  log(`  usageMode: ${state.choices.usageMode || "(unset)"}${state.choices.usageMode === "auto" ? `  ${c.dim}(Tier 2 probe: ${state.choices.autoTier2LLMProbe === false ? "off" : "on"})${c.reset}` : ""}`);
   if (state.choices.subscription) {
     log(`  subscription: claude=${state.choices.subscription.claude || "?"}  codex=${state.choices.subscription.codex || "?"}`);
   }
@@ -672,6 +773,10 @@ async function cmdStatus() {
   try {
     const hookStatus = await hooks.status();
     log(`  PostToolUse hooks: ${hookStatus.present ? `${hookStatus.present} (${hookStatus.matchers.join(", ")})` : "(none)"}`);
+  } catch { /* settings file missing */ }
+  try {
+    const gateHookStatus = await hooks.gateStatus();
+    log(`  PreToolUse gate:   ${gateHookStatus.present ? `${gateHookStatus.present} (${gateHookStatus.matchers.join(", ")}) — mode=none enforcement` : "(none)"}`);
   } catch { /* settings file missing */ }
   if (state.choices.shareScope || state.installed?.pluginBundle) {
     log(`  ${c.dim}(legacy) shareScope: ${state.choices.shareScope || "-"}, pluginBundle: ${state.installed?.pluginBundle || "-"} — managed surface ended in v0.3${c.reset}`);
@@ -968,8 +1073,124 @@ async function shouldAcceptAutoHookLog() {
   }
 }
 
+// G3 fix: every log entry now carries the active usageMode so analyzer rules
+// (notably ruleUsageModeDrift) can correlate calls to the mode in effect at log time.
+// Fails open: missing/corrupt config returns null rather than throwing.
+async function readUsageModeSafe() {
+  try {
+    const state = await readJson(STATE_FILE);
+    return state?.choices?.usageMode || null;
+  } catch {
+    return null;
+  }
+}
+
 function isFromStdin(args) {
   return args.flags["from-stdin"] === true || args.flags["from-stdin"] === "true";
+}
+
+// v0.5.0: PreToolUse gate handler — invoked by `codex-on-claude gate --from-stdin`.
+// Reads the hook payload from stdin, consults config.usageMode, and emits a Claude Code
+// hook decision JSON (`{decision, reason}`) when the call should be blocked.
+//
+// L6.2 fix (fail-CLOSED for Codex-shaped tools):
+//   The original handler returned silently on parse failure or missing config — which produced
+//   `decision=allow` exactly when defense matters most (corrupt state, symlinked config). Now:
+//     - If we can identify the tool as Codex-shaped (MCP variant OR Bash invoking codex CLI) but
+//       state is unreadable, emit `deny` with reason "state unreadable, failing closed".
+//     - For unidentifiable / non-Codex tools we still fail-open (avoid breaking unrelated calls).
+// H1 fix: emit Claude Code hook decision in BOTH the legacy `{decision, reason}` shape and the
+// newer `hookSpecificOutput.permissionDecision` shape so we work against current (2.1.x) and any
+// future Claude Code that drops legacy support.
+//
+// B3 fix (pre-ship audit): the previous version called `process.exit(2)` immediately after
+// `process.stdout.write()`. Node's stdout is async for non-TTY streams, so the JSON could be
+// truncated before flush — defeating the whole point of the gate. Worse, Claude Code's hook
+// contract is "exit 0 + JSON decides"; non-zero exit codes have undefined behavior and may
+// cause the host to ignore the JSON entirely.
+//
+// New strategy: write stderr backstop FIRST (synchronous), then write JSON with a flush
+// callback that lets Node exit naturally with code 0 after stdout is drained.
+function emitDeny(reason, { hard = false } = {}) {
+  // Stderr backstop (synchronous on most platforms): always write to stderr for Codex-shaped
+  // hard-denies so even hosts that ignore stdout JSON see the deny intent.
+  if (hard) {
+    process.stderr.write(`[codex-on-claude gate] DENY: ${reason}\n`);
+  }
+  const out = {
+    // Legacy (current Claude Code 2.1.x reads this)
+    decision: "deny",
+    reason,
+    // New schema (Claude Code 2.2+ may require this)
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: reason,
+    },
+  };
+  // Write JSON + flush before exit. Honor the "exit 0 + JSON decides" contract.
+  process.stdout.write(JSON.stringify(out) + "\n");
+}
+
+async function cmdGate(args) {
+  const fromStdin = isFromStdin(args);
+  if (!fromStdin) {
+    process.stdout.write("codex-on-claude gate requires --from-stdin (invoked by Claude Code hook)\n");
+    process.exit(2);
+  }
+
+  // H2 fix: when --enforce-mode is baked into the hook command line (race-free path),
+  // we trust the flag over config.json — eliminates the toggle race between settings.json
+  // and config.json writes. If flag is absent we fall back to config-based decision.
+  const enforceMode = typeof args.flags["enforce-mode"] === "string" ? args.flags["enforce-mode"] : null;
+
+  const raw = await readAllStdin();
+  if (!raw.trim()) return; // no payload → cannot identify tool → allow silently (legacy behavior)
+
+  let payload = null;
+  let parseError = null;
+  try { payload = JSON.parse(raw); } catch (e) { parseError = e; }
+
+  // Quick pre-screen: regardless of parse result, peek at the raw stdin for Codex hints.
+  // If the payload looks Codex-shaped at all, we want to be defensive.
+  const looksCodex = /mcp__codex__|"\s*Bash\s*"[\s\S]*codex/i.test(raw);
+
+  if (parseError) {
+    if (looksCodex) {
+      emitDeny("codex-on-claude gate: payload is malformed JSON and tool appears codex-shaped — failing closed.", { hard: true });
+    }
+    return; // non-codex unparseable payload → allow
+  }
+
+  // If flag is baked in, synthesize a minimal config so decideGate sees the enforce mode.
+  // This is race-free: the mode is fixed at install time, not read from a separate file.
+  let config = null;
+  let configError = null;
+  if (enforceMode) {
+    config = { choices: { usageMode: enforceMode } };
+  } else {
+    try { config = await readJson(STATE_FILE); } catch (e) { configError = e; }
+  }
+
+  // Decide. decideGate handles the Codex MCP + Bash detection.
+  const result = hooks.decideGate(payload, config);
+
+  if (result.decision === "deny") {
+    emitDeny(result.reason, { hard: true });
+    return;
+  }
+
+  // Fail-CLOSED: if config read failed AND tool is Codex-shaped, refuse rather than default to synergy.
+  // (Only reachable when enforceMode flag isn't baked in.)
+  if (configError && result.meta?.source) {
+    emitDeny(
+      `codex-on-claude gate: config.json unreadable, failing closed for codex-shaped tool (${result.meta.source}). Run \`codex-on-claude reconfigure\` to restore state.`,
+      { hard: true }
+    );
+    return;
+  }
+
+  // allow → exit 0 with no output (default behavior is to allow)
 }
 
 async function cmdLog(args) {
@@ -1004,6 +1225,8 @@ async function cmdLog(args) {
       notes: args.flags["notes"] || null,
     };
   }
+  // G3 fix: stamp the active usageMode onto every entry (after extraction, before append).
+  entry.usageMode = await readUsageModeSafe();
   const file = await appendLog(entry);
   // Hook mode runs silently (Claude Code captures stdout/stderr per spec); manual mode prints success.
   if (!fromStdin) {
@@ -1012,36 +1235,83 @@ async function cmdLog(args) {
 }
 
 async function cmdUninstall(manifest) {
+  // B5 fix (pre-ship): always reconcile against actual settings.json regardless of state.
+  //   Original behavior gated PostToolUse/PreToolUse hook removal on `state.installed.{hooks,gateHooks}`.
+  //   If state was missing/corrupt OR a user manually edited `~/.claude/settings.json`, stale
+  //   hook entries (especially the `--enforce-mode=none` PreToolUse gate) could survive uninstall
+  //   and keep blocking Codex forever. We now ALWAYS check actual settings.json status.
   const state = await loadState();
-  if (!state) {
-    info("No install-state file. Inspect ~/.claude/skills/codex-* and ~/.claude/agents/codex-reviewer.md manually.");
-    return;
-  }
   const removed = [];
-  for (const skillKey of state.installed?.skills || []) {
-    const def = manifest.skills[skillKey];
-    if (!def) continue;
-    const dst = path.join(CLAUDE_DIR, def.target);
-    if (await removeIfExists(dst)) removed.push(`skills/${skillKey}`);
-  }
-  if (state.installed?.agent) {
-    const dst = path.join(CLAUDE_DIR, manifest.agent.target);
-    if (await removeIfExists(dst)) removed.push(`agents/${manifest.agent.name}`);
-  }
-  if (state.installed?.pluginBundle) {
-    // v0.3+: do not auto-delete the legacy plugin bundle. Notify instead.
-    warn(`Legacy plugin bundle present (${state.installed.pluginBundle}) — not auto-removed. Manual: rm -rf "$HOME/.claude/${state.installed.pluginBundle}"`);
-  }
-  if (state.installed?.hooks) {
-    try {
-      const r = await hooks.remove();
-      if (r.removedGroups) {
-        removed.push(`hooks/PostToolUse (${r.removedGroups})`);
+
+  // A1 fix (final pre-ship): iterate `installed.agents[]` (v0.4.1+ array form) so the fallback
+  // reviewer agent (`codex-reviewer-fallback.md`) is also removed. Backward-compat: also honor
+  // the legacy singular `installed.agent` field. When state is missing, fall back to
+  // best-effort cleanup against every target known in the manifest.
+  const allAgentDefs = [];
+  if (manifest.agent) allAgentDefs.push(manifest.agent);
+  if (manifest.agentFallback) allAgentDefs.push(manifest.agentFallback);
+
+  if (!state) {
+    info("No install-state file — attempting best-effort cleanup against ~/.claude/skills/, /agents/, and ~/.claude/settings.json.");
+    // Best-effort: remove every manifest-known skill + agent target.
+    for (const skillKey of Object.keys(manifest.skills || {})) {
+      const def = manifest.skills[skillKey];
+      const dst = path.join(CLAUDE_DIR, def.target);
+      if (await removeIfExists(dst)) removed.push(`skills/${skillKey} (best-effort)`);
+    }
+    for (const agentDef of allAgentDefs) {
+      const dst = path.join(CLAUDE_DIR, agentDef.target);
+      if (await removeIfExists(dst)) removed.push(`agents/${agentDef.name} (best-effort)`);
+    }
+  } else {
+    for (const skillKey of state.installed?.skills || []) {
+      const def = manifest.skills[skillKey];
+      if (!def) continue;
+      const dst = path.join(CLAUDE_DIR, def.target);
+      if (await removeIfExists(dst)) removed.push(`skills/${skillKey}`);
+    }
+    // A1: iterate `installed.agents[]` (v0.4.1+) or fall back to legacy `installed.agent`.
+    const agentNames = state.installed?.agents
+      || (state.installed?.agent ? [state.installed.agent] : []);
+    for (const agentName of agentNames) {
+      // Find target by matching name against manifest entries (handles both primary + fallback).
+      const agentDef = allAgentDefs.find((d) => d.name === agentName);
+      if (!agentDef) {
+        warn(`Cannot locate manifest entry for agent "${agentName}" — skipping removal.`);
+        continue;
       }
-    } catch (e) {
-      warn(`Error removing PostToolUse hook: ${e.message}`);
+      const dst = path.join(CLAUDE_DIR, agentDef.target);
+      if (await removeIfExists(dst)) removed.push(`agents/${agentName}`);
+    }
+    if (state.installed?.pluginBundle) {
+      warn(`Legacy plugin bundle present (${state.installed.pluginBundle}) — not auto-removed. Manual: rm -rf "$HOME/.claude/${state.installed.pluginBundle}"`);
     }
   }
+
+  // Always check actual PostToolUse hook status — strip ANY entries with our auto-log marker.
+  try {
+    const postStatus = await hooks.status();
+    if (postStatus.present > 0) {
+      const r = await hooks.remove();
+      if (r.removedGroups) removed.push(`hooks/PostToolUse (${r.removedGroups})`);
+    }
+  } catch (e) {
+    warn(`Error checking/removing PostToolUse hook: ${e.message}`);
+  }
+
+  // Always check actual PreToolUse gate status — strip ANY entries with our usage-gate marker.
+  // This protects against state drift: e.g. state says gateHooks=false but settings.json still
+  // has stale --enforce-mode=none entries from a prior install.
+  try {
+    const gateStatus = await hooks.gateStatus();
+    if (gateStatus.present > 0) {
+      const r = await hooks.removeGate();
+      if (r.removedGroups) removed.push(`hooks/PreToolUse-gate (${r.removedGroups})`);
+    }
+  } catch (e) {
+    warn(`Error checking/removing PreToolUse gate: ${e.message}`);
+  }
+
   await removeIfExists(STATE_FILE);
   await removeIfExists(STATE_DIR);
   ok(`Removed: ${removed.length} item(s)`);
@@ -1051,6 +1321,11 @@ async function cmdUninstall(manifest) {
 
 async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   const isReconfigure = opts.reconfigure === true;
+  // G2 fix: distinguish explicit user-initiated reconfigure (`coc reconfigure ...`) from
+  // auto-detected reconfigure (no-arg invocation with prior state present). The §7 usage-mode
+  // prompt should fire only for the explicit case; auto-detected runs silently fill `synergy`
+  // and surface the info line.
+  const isExplicitReconfigure = opts.explicitReconfigure === true;
   const previousState = await loadState();
 
   if (isReconfigure && !previousState) {
@@ -1075,6 +1350,11 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   // Defaults — normalize aliased keys from previous-state configs (e.g. on-demand → manual)
   const priorSubClaude = previousState?.choices?.subscription?.claude || defaultSubscription("claude");
   const priorSubCodex = previousState?.choices?.subscription?.codex || defaultSubscription("codex");
+  // v0.5.0: usageMode migration — silently fill 'synergy' for upgrading users so existing
+  // behavior is preserved. Explicit reconfigure surfaces the prompt; otherwise it stays hidden.
+  const hadPriorUsageMode = previousState?.choices && Object.prototype.hasOwnProperty.call(previousState.choices, "usageMode");
+  const priorUsageMode = previousState?.choices?.usageMode || "synergy";
+  const priorAutoTier2 = previousState?.choices?.autoTier2LLMProbe !== false; // default true
   const defaults = {
     patterns: previousState?.choices?.patterns || [],
     contextPolicy: previousState?.choices?.contextPolicy,
@@ -1092,6 +1372,14 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
           previousState?.choices?.model?.reviewer?.primary || defaultPrimaryFor(manifest, "claude", priorSubClaude)),
         fallback: fallbackFor(manifest, "claude", priorSubClaude),
       },
+    },
+    usageMode: priorUsageMode,
+    autoTier2LLMProbe: priorAutoTier2,
+    guardrails: previousState?.choices?.guardrails || {
+      chainJsonTrap: "hard-block",
+      subagentStrict: "hard-block",
+      turnBurn: "3-turn-stop",
+      ceilingNoUpside: "warn-and-skip",
     },
   };
   if (previousState?.choices?.improvementLoop && previousState.choices.improvementLoop !== defaults.improvementLoop) {
@@ -1114,6 +1402,9 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   const flagCodexReasoningF = typeof args.flags["codex-reasoning-fallback"] === "string" ? args.flags["codex-reasoning-fallback"] : null;
   const flagReviewerModelF = typeof args.flags["reviewer-model-fallback"] === "string" ? args.flags["reviewer-model-fallback"] : null;
   const flagReviewerReasoningF = typeof args.flags["reviewer-reasoning-fallback"] === "string" ? args.flags["reviewer-reasoning-fallback"] : null;
+  // v0.5.0: usage-mode + auto-tier2-llm-probe flags
+  const flagUsageMode = typeof args.flags["usage-mode"] === "string" ? args.flags["usage-mode"] : null;
+  const flagAutoTier2 = args.flags["auto-tier2-llm-probe"]; // may be true, false, "on", "off", or undefined
   const autoYes = args.flags["yes"] === true || args.flags["y"] === true;
   if (args.flags["share-scope"] !== undefined) {
     warn(`--share-scope=${args.flags["share-scope"]} is deprecated and ignored since v0.3.`);
@@ -1151,6 +1442,9 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
       codex:    { primary: { ...defaults.model.codex.primary },    fallback: { ...defaults.model.codex.fallback } },
       reviewer: { primary: { ...defaults.model.reviewer.primary }, fallback: { ...defaults.model.reviewer.fallback } },
     },
+    usageMode: defaults.usageMode || "synergy",
+    autoTier2LLMProbe: defaults.autoTier2LLMProbe !== false,
+    guardrails: { ...defaults.guardrails },
   };
 
   // Apply CLI flag overrides up front — they short-circuit prompts entirely.
@@ -1160,6 +1454,24 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   if (typeof flagLoop === "string") {
     choices.improvementLoop = normalizeImprovementLoop(manifest, flagLoop);
     if (flagLoop !== choices.improvementLoop) info(`improvementLoop "${flagLoop}" → "${choices.improvementLoop}" (alias)`);
+  }
+  // v0.5.0: usage-mode flag
+  if (flagUsageMode) {
+    const allowedModes = manifest.questions.usageMode.choices.map((ch) => ch.key);
+    if (!allowedModes.includes(flagUsageMode)) {
+      err(`--usage-mode=${flagUsageMode} not in allowed: ${allowedModes.join(", ")}`);
+      process.exit(2);
+    }
+    choices.usageMode = flagUsageMode;
+  }
+  if (flagAutoTier2 !== undefined) {
+    // Accept boolean true/false (--auto-tier2-llm-probe / --auto-tier2-llm-probe=false) or "on"/"off"
+    if (flagAutoTier2 === true || flagAutoTier2 === "on" || flagAutoTier2 === "true") choices.autoTier2LLMProbe = true;
+    else if (flagAutoTier2 === false || flagAutoTier2 === "off" || flagAutoTier2 === "false") choices.autoTier2LLMProbe = false;
+    else {
+      err(`--auto-tier2-llm-probe=${flagAutoTier2} invalid (use on|off or omit value)`);
+      process.exit(2);
+    }
   }
   // Subscription flags
   if (flagSubClaude) {
@@ -1249,6 +1561,34 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
       logChange("threads", before, choices.threads, false);
     }
 
+    // ------- Usage mode (v0.5.0) -------
+    // Migration policy: existing users without prior usageMode AND not explicitly reconfiguring
+    // skip this prompt (silent default 'synergy'). All other paths surface the prompt.
+    // G2 fix: skip §7 prompt when upgrading user has no prior usageMode AND wasn't explicitly
+    // reconfiguring. This fires for the canonical `npx codex-on-claude@latest` upgrade path.
+    const skipUsageModePrompt = hadPriorUsageMode === false && !isExplicitReconfigure && hasPrev;
+    if (!autoYes && !flagUsageMode && !skipUsageModePrompt) {
+      const before = choices.usageMode;
+      choices.usageMode = await askSingle(
+        manifest.questions.usageMode.label,
+        manifest.questions.usageMode.choices,
+        choices.usageMode
+      );
+      logChange("usageMode", before, choices.usageMode, false);
+    } else if (skipUsageModePrompt) {
+      info(`usageMode: silent default "synergy" applied for upgrade (run \`codex-on-claude reconfigure\` to change)`);
+    }
+    if (!autoYes && flagAutoTier2 === undefined && choices.usageMode === "auto" && !skipUsageModePrompt) {
+      const before = choices.autoTier2LLMProbe ? "on" : "off";
+      const choice = await askSingle(
+        manifest.questions.autoTier2LLMProbe.label,
+        manifest.questions.autoTier2LLMProbe.choices,
+        before
+      );
+      choices.autoTier2LLMProbe = choice === "on";
+      logChange("autoTier2LLMProbe", before, choice, false);
+    }
+
     // ------- Subscription + model + reasoning (v0.4.1) -------
     if (!autoYes && !flagSubClaude) {
       const before = choices.subscription.claude;
@@ -1330,6 +1670,7 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   log(`  contextPolicy: ${choices.contextPolicy}`);
   log(`  improvementLoop: ${choices.improvementLoop}`);
   log(`  threads: ${choices.threads}`);
+  log(`  usageMode: ${choices.usageMode}${choices.usageMode === "auto" ? `  ${c.dim}(Tier 2 LLM probe: ${choices.autoTier2LLMProbe ? "on" : "off"})${c.reset}` : ""}`);
   log(`  subscription: claude=${choices.subscription.claude}  codex=${choices.subscription.codex}`);
   log(`  codex   : primary ${fmtModelSlot(choices.model.codex.primary)}   ${c.dim}fallback ${fmtModelSlot(choices.model.codex.fallback)} (locked)${c.reset}`);
   log(`  reviewer: primary ${fmtModelSlot(choices.model.reviewer.primary)}   ${c.dim}fallback ${fmtModelSlot(choices.model.reviewer.fallback)} (locked)${c.reset}`);
@@ -1398,7 +1739,7 @@ async function main() {
     return;
   }
   if (sub === "reconfigure" || sub === "config") {
-    await cmdInstallOrReconfigure(manifest, args, { reconfigure: true });
+    await cmdInstallOrReconfigure(manifest, args, { reconfigure: true, explicitReconfigure: true });
     return;
   }
   if (sub === "analyze") {
@@ -1411,6 +1752,10 @@ async function main() {
   }
   if (sub === "log") {
     await cmdLog(args);
+    return;
+  }
+  if (sub === "gate") {
+    await cmdGate(args);
     return;
   }
   if (sub === "threads") {
@@ -1434,6 +1779,12 @@ Install flags:
   --context-policy=direct|summarize|mixed
   --improvement-loop=off|manual|auto-on-skill|periodic   (alias: on-demand → manual)
   --threads=off|basic|full
+  --usage-mode=none|synergy|auto|max                     (v0.5.0 — Codex invocation policy)
+  --auto-tier2-llm-probe=on|off                          (v0.5.0 — auto-mode Tier 2 LLM probe)
+  --subscription-claude=free|pro|max|team|enterprise
+  --subscription-codex=free|plus|pro|team
+  --codex-model-primary=<id>    --codex-reasoning-primary=<level>
+  --reviewer-model-primary=<id> --reviewer-reasoning-primary=<level>
   --yes, -y                     Auto-accept all confirmations (skips review screen)
   --share-scope=...             (deprecated, ignored — removed in v0.3)
 
@@ -1478,10 +1829,29 @@ Examples:
     return;
   }
 
+  // G1 fix: reject unknown positional args before falling through to install.
+  // Catches the `--usage-mode max` (space-separated) bug where parseArgs interprets it as
+  // `flags["usage-mode"]=true` + positional `max`, silently dropping the user-intended value.
+  const KNOWN_SUBCOMMANDS = new Set([
+    "reconfigure", "config", "status", "doctor", "check", "uninstall", "remove",
+    "analyze", "suggest", "log", "gate", "threads", "help",
+  ]);
+  if (sub && !KNOWN_SUBCOMMANDS.has(sub)) {
+    err(`Unknown command or positional argument: "${sub}"`);
+    info(`If you meant to pass a flag value, use \`=\`. Example: \`--usage-mode=${sub}\` (not \`--usage-mode ${sub}\`).`);
+    info(`Run \`codex-on-claude help\` to see available sub-commands and flags.`);
+    process.exit(2);
+  }
+
   // No subcommand: auto-detect existing install. With prior state, run the reconfigure path
   // so the user sees a clear "update + reconfigure" banner and the same flow as `reconfigure`.
+  // G2 fix: this is the AUTO-detected reconfigure (npx upgrade), NOT explicit — so the §7
+  // usage-mode prompt is skipped and the silent-fill info line fires for migrating users.
   const existing = await loadState();
-  await cmdInstallOrReconfigure(manifest, args, { reconfigure: !!existing?.choices });
+  await cmdInstallOrReconfigure(manifest, args, {
+    reconfigure: !!existing?.choices,
+    explicitReconfigure: false,
+  });
 }
 
 main().catch((e) => {

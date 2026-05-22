@@ -1,0 +1,17 @@
+{
+  "scenario": "E2-security-harden-loop",
+  "notes": "3 planted issues: SQLi (concat), XSS (template literal), timing attack (===). β: review → fix → re-review chain.",
+  "criteria": [
+    { "name": "found_at_least_three", "type": "final_json_array_min", "args": { "field": "findings", "min": 3 } },
+    { "name": "fixes_applied_min", "type": "final_json_field", "args": { "field": "fixes_applied" } },
+    { "name": "remaining_is_zero", "type": "final_json_field", "args": { "field": "remaining_issues", "equals": 0 } },
+    { "name": "mentions_sqli", "type": "contains_text", "args": { "needle": "sql" } },
+    { "name": "mentions_xss", "type": "contains_text", "args": { "needle": "xss" } },
+    { "name": "mentions_timing_or_compare", "type": "contains_text", "args": { "needle": "timing" } },
+    { "name": "beta_two_rounds", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": { "name": "mcp__codex__codex", "min": 2 }
+    } }
+  ]
+}

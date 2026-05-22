@@ -1,0 +1,15 @@
+{
+  "id": "R08",
+  "template": "R",
+  "category": "Code review (Python)",
+  "hypothesis_target": "NEW_real_codebase",
+  "source": {
+    "path": "~/exdata/contents_blocker/itssa_airflow_vscode/scripts/scrape_post_links.py",
+    "focus": "web scraper logic + error handling"
+  },
+  "params": {
+    "task": "review",
+    "focus": "web scraper logic + error handling"
+  },
+  "generated_at": "2026-05-21T10:12:30.561Z"
+}

@@ -1,0 +1,1 @@
+Identify all security vulnerabilities in this database code. For each vulnerability explain: the attack vector, potential impact, and how to fix it properly. Address injection risks, input validation, and query construction. Return JSON with: vulnerabilities (array with type, attack_vector, impact, fix).

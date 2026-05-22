@@ -1,0 +1,8 @@
+{
+  "id": "LA-06",
+  "template": "LLM",
+  "category": "Performance",
+  "hypothesis_target": "P5_catastrophe",
+  "generated_at": "2026-05-21T00:33:25.127Z",
+  "generator": "A"
+}

@@ -1,0 +1,1 @@
+Use /codex-review to analyze the config approach and create an ADR. Document decision context, at least 3 alternatives, chosen solution, consequences, and rationale. Return JSON with: context, problem_statement, alternatives, chosen_solution, consequences, rationale.

@@ -1,0 +1,67 @@
+{
+  "scenario": "T01-01",
+  "notes": "T01 self-review doc — rate-limiter/js, 5 sections",
+  "criteria": [
+    {
+      "name": "has_all_sections",
+      "type": "doc_section_exists",
+      "args": {
+        "sections": [
+          "Description",
+          "How to invoke",
+          "Guardrails",
+          "MUST procedures",
+          "Edge cases"
+        ]
+      }
+    },
+    {
+      "name": "no_tbd",
+      "type": "not_contains_text",
+      "args": {
+        "needle": "TBD"
+      }
+    },
+    {
+      "name": "no_todo",
+      "type": "not_contains_text",
+      "args": {
+        "needle": "TODO"
+      }
+    },
+    {
+      "name": "json_sections_field",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "sections_authored",
+        "min": 5
+      }
+    },
+    {
+      "name": "word_count_under_700",
+      "type": "word_count_max",
+      "args": {
+        "max": 700
+      }
+    },
+    {
+      "name": "mentions_module",
+      "type": "contains_text",
+      "args": {
+        "needle": "rate"
+      }
+    },
+    {
+      "name": "beta_invoked_codex_twice",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 2
+        }
+      }
+    }
+  ]
+}

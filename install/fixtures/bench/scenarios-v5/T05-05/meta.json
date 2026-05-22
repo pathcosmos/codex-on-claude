@@ -1,0 +1,13 @@
+{
+  "id": "T05-05",
+  "template": "T05",
+  "category": "TDD / Test generation",
+  "hypothesis_target": "P4_tdd_followup",
+  "params": {
+    "id": "T05-05",
+    "module": "bloom-filter",
+    "lang": "js",
+    "edge_cases": 3
+  },
+  "generated_at": "2026-05-20T14:30:11.163Z"
+}

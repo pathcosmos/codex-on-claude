@@ -1,0 +1,1 @@
+Use /codex-review to analyze this Node.js code for architectural issues and callback patterns. Identify error handling, readability, and maintainability problems. Suggest refactoring approaches. Return JSON with: issues, severity_level, suggested_refactoring.

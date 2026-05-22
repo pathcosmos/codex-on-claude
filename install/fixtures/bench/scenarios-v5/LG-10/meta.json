@@ -1,0 +1,8 @@
+{
+  "id": "LG-10",
+  "template": "LLM",
+  "category": "Parser",
+  "hypothesis_target": "P3_reasoning_high",
+  "generated_at": "2026-05-21T00:38:51.147Z",
+  "generator": "G"
+}

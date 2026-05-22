@@ -1,0 +1,8 @@
+{
+  "id": "LB-05",
+  "template": "LLM",
+  "category": "Security audit",
+  "hypothesis_target": "P5_catastrophe",
+  "generated_at": "2026-05-21T00:35:29.964Z",
+  "generator": "B"
+}

@@ -1,0 +1,1 @@
+function msg(n) { return n === 1 ? '1 item' : n + ' items'; } // breaks for Slavic/Arabic plurals

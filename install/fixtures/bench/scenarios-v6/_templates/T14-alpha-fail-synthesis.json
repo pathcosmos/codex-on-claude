@@ -1,0 +1,15 @@
+{
+  "id": "T14",
+  "name": "alpha-fail-synthesis",
+  "category": "Multi-doc synthesis",
+  "hypothesis_target": "P5_catastrophe_dial",
+  "description": "Synthesis task with α partial-fail dial via implicit coverage requirements + chain depth.",
+  "design_principle": "JSON strict ratio + implicit requirements vary tiers.",
+  "param_combos": [
+    { "id": "T14-01", "domain": "config-bundles", "n_files": 4, "implicit_required": 0, "alpha_target_pct": "100", "json_strict": 0.3 },
+    { "id": "T14-02", "domain": "service-docs", "n_files": 5, "implicit_required": 1, "alpha_target_pct": "85", "json_strict": 0.5 },
+    { "id": "T14-03", "domain": "policy-trees", "n_files": 6, "implicit_required": 2, "alpha_target_pct": "65", "json_strict": 0.6 },
+    { "id": "T14-04", "domain": "api-contracts", "n_files": 7, "implicit_required": 3, "alpha_target_pct": "45", "json_strict": 0.7 },
+    { "id": "T14-05", "domain": "cross-team-rfc", "n_files": 8, "implicit_required": 5, "alpha_target_pct": "30", "json_strict": 0.8 }
+  ]
+}

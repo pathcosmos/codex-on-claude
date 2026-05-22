@@ -1,0 +1,53 @@
+{
+  "scenario": "RS05",
+  "notes": "RS strict ORACLE — cli.ts, 3 required categories",
+  "criteria": [
+    {
+      "name": "findings_by_category_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "findings_by_category"
+      }
+    },
+    {
+      "name": "mentions_focus_term",
+      "type": "contains_text",
+      "args": {
+        "needle": "CLI"
+      }
+    },
+    {
+      "name": "mentions_unicode_handling",
+      "type": "contains_text",
+      "args": {
+        "needle": "unicode"
+      }
+    },
+    {
+      "name": "mentions_empty_input",
+      "type": "contains_text",
+      "args": {
+        "needle": "empty"
+      }
+    },
+    {
+      "name": "mentions_flag_collision",
+      "type": "contains_text",
+      "args": {
+        "needle": "flag"
+      }
+    },
+    {
+      "name": "beta_codex_called",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

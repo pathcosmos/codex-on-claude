@@ -1,0 +1,57 @@
+{
+  "scenario": "T03-07",
+  "notes": "T03 catastrophe candidate — n_files=7, chain=5, strict=0.8, subagent=true",
+  "criteria": [
+    {
+      "name": "modules_min",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "modules",
+        "min": 5
+      }
+    },
+    {
+      "name": "dependencies_present",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "dependencies",
+        "min": 3
+      }
+    },
+    {
+      "name": "top_risks_3",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "top_risks",
+        "min": 3
+      }
+    },
+    {
+      "name": "synthesis_done",
+      "type": "final_json_field",
+      "args": {
+        "field": "synthesis_done",
+        "equals": true
+      }
+    },
+    {
+      "name": "mentions_domain",
+      "type": "contains_text",
+      "args": {
+        "needle": "feature"
+      }
+    },
+    {
+      "name": "beta_chain_executed",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

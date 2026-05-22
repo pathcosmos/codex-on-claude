@@ -1,0 +1,8 @@
+{
+  "id": "LG-08",
+  "template": "LLM",
+  "category": "API contract",
+  "hypothesis_target": "P1_self_review",
+  "generated_at": "2026-05-21T00:38:51.146Z",
+  "generator": "G"
+}

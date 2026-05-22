@@ -1,0 +1,16 @@
+{
+  "id": "RS01",
+  "template": "RS",
+  "category": "Real codebase review (strict ORACLE)",
+  "hypothesis_target": "P2_real_strict",
+  "source": {
+    "path": "/Volumes/minim42tbtmm/pathcosmos/codex-on-claude/install/hooks.mjs",
+    "focus": "mixed-ownership stripping correctness"
+  },
+  "required_issues": [
+    "mixed_ownership",
+    "json_corruption",
+    "idempotence"
+  ],
+  "test": "does strict ORACLE produce partial-fail (sweet spot entry)?"
+}

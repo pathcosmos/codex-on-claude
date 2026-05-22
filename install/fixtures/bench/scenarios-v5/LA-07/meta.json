@@ -1,0 +1,8 @@
+{
+  "id": "LA-07",
+  "template": "LLM",
+  "category": "Bug fix",
+  "hypothesis_target": "P2_adversarial",
+  "generated_at": "2026-05-21T00:33:25.128Z",
+  "generator": "A"
+}

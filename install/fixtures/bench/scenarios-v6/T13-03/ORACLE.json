@@ -1,0 +1,39 @@
+{
+  "scenario": "T13-03",
+  "notes": "T13 α-fail-dial — 3-color-w-forbid, constraints=3, α=70%",
+  "criteria": [
+    {
+      "name": "mentions_constraint",
+      "type": "contains_text",
+      "args": {
+        "needle": "constraint"
+      }
+    },
+    {
+      "name": "mentions_verify",
+      "type": "contains_text",
+      "args": {
+        "needle": "verif"
+      }
+    },
+    {
+      "name": "mentions_problem_term",
+      "type": "contains_text",
+      "args": {
+        "needle": "3"
+      }
+    },
+    {
+      "name": "beta_codex_called",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

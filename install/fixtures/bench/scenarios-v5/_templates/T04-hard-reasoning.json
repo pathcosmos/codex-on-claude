@@ -1,0 +1,19 @@
+{
+  "id": "T04",
+  "name": "hard-reasoning",
+  "category": "Hard reasoning / constraint",
+  "hypothesis_target": "P3_reasoning_high",
+  "description": "Hard constraint/reasoning problems. β-arm: explicit reasoning=high MCP escalation.",
+  "param_combos": [
+    { "id": "T04-01", "problem": "graph-coloring", "size": "small", "constraints": 3 },
+    { "id": "T04-02", "problem": "knapsack-bounded", "size": "medium", "constraints": 2 },
+    { "id": "T04-03", "problem": "interval-scheduling", "size": "small", "constraints": 4 },
+    { "id": "T04-04", "problem": "sudoku-variant", "size": "medium", "constraints": 5 },
+    { "id": "T04-05", "problem": "tower-of-hanoi-variant", "size": "small", "constraints": 3 },
+    { "id": "T04-06", "problem": "minimum-spanning-tree", "size": "small", "constraints": 2 },
+    { "id": "T04-07", "problem": "regex-equivalence", "size": "small", "constraints": 2 },
+    { "id": "T04-08", "problem": "system-of-equations", "size": "small", "constraints": 4 },
+    { "id": "T04-09", "problem": "matrix-chain-mult", "size": "small", "constraints": 1 },
+    { "id": "T04-10", "problem": "lcs-3-strings", "size": "small", "constraints": 1 }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "T11",
+  "name": "alpha-fail-doc",
+  "category": "Documentation authoring",
+  "hypothesis_target": "P1_self_review_revised",
+  "description": "Doc authoring with α partial-fail dial. Vary ORACLE diversity + spec implicitness to control α fail rate. Test if β-win correlates with α partial-fail (not src complexity).",
+  "design_principle": "src 는 동일 (40 LOC module). ORACLE criteria 수 + section completeness implicit ratio 가 다이얼.",
+  "param_combos": [
+    { "id": "T11-01", "module": "rate-limiter", "alpha_target_pct": "100", "n_criteria": 3, "explicit_sections": "all" },
+    { "id": "T11-02", "module": "cache-lru", "alpha_target_pct": "90", "n_criteria": 5, "explicit_sections": "most" },
+    { "id": "T11-03", "module": "retry-backoff", "alpha_target_pct": "75", "n_criteria": 7, "explicit_sections": "half" },
+    { "id": "T11-04", "module": "event-bus", "alpha_target_pct": "60", "n_criteria": 9, "explicit_sections": "few" },
+    { "id": "T11-05", "module": "circuit-breaker", "alpha_target_pct": "40", "n_criteria": 11, "explicit_sections": "none" }
+  ]
+}

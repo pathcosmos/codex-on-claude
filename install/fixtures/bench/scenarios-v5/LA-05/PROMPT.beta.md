@@ -1,0 +1,1 @@
+Use /codex-review to audit this database code for security vulnerabilities. Identify injection risks, input validation issues, and query construction problems. Explain attack vectors and impacts. Return JSON with: vulnerabilities (array with type, attack_vector, impact, fix).

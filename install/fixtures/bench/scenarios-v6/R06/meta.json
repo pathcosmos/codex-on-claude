@@ -1,0 +1,15 @@
+{
+  "id": "R06",
+  "template": "R",
+  "category": "Code review",
+  "hypothesis_target": "NEW_real_codebase",
+  "source": {
+    "path": "~/aidata/pathcosmos/cli-ascii-usage/src/cli.ts",
+    "focus": "CLI argument parsing + ASCII rendering"
+  },
+  "params": {
+    "task": "review",
+    "focus": "CLI argument parsing + ASCII rendering"
+  },
+  "generated_at": "2026-05-21T10:12:30.560Z"
+}

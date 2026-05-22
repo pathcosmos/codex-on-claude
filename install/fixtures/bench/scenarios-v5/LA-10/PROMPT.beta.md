@@ -1,0 +1,1 @@
+Use /codex-review to check API contract compliance. Compare documentation to implementation. Find parameter misuse, incomplete returns, missing validation. List violations with expected vs actual. Return JSON with: violations (array with violation_type, expected, actual, fix).

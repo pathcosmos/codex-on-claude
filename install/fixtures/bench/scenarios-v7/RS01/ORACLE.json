@@ -1,0 +1,53 @@
+{
+  "scenario": "RS01",
+  "notes": "RS strict ORACLE — hooks.mjs, 3 required categories",
+  "criteria": [
+    {
+      "name": "findings_by_category_present",
+      "type": "final_json_field",
+      "args": {
+        "field": "findings_by_category"
+      }
+    },
+    {
+      "name": "mentions_focus_term",
+      "type": "contains_text",
+      "args": {
+        "needle": "mixed-ownership"
+      }
+    },
+    {
+      "name": "mentions_mixed_ownership",
+      "type": "contains_text",
+      "args": {
+        "needle": "mixed"
+      }
+    },
+    {
+      "name": "mentions_json_corruption",
+      "type": "contains_text",
+      "args": {
+        "needle": "json"
+      }
+    },
+    {
+      "name": "mentions_idempotence",
+      "type": "contains_text",
+      "args": {
+        "needle": "idempotence"
+      }
+    },
+    {
+      "name": "beta_codex_called",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": {
+          "name": "mcp__codex__codex",
+          "min": 1
+        }
+      }
+    }
+  ]
+}

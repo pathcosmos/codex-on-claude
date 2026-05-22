@@ -1,0 +1,19 @@
+{
+  "id": "T03",
+  "name": "catastrophe-synthesis",
+  "category": "Multi-doc synthesis",
+  "hypothesis_target": "P5_catastrophe",
+  "description": "Synthesis task with high chain_length + high output_strict_ratio. Tests if E10-pattern β-harmful is general.",
+  "param_combos": [
+    { "id": "T03-01", "domain": "microservices-services", "n_files": 6, "chain": 4, "strict": 0.7, "subagent": true },
+    { "id": "T03-02", "domain": "config-modules", "n_files": 5, "chain": 3, "strict": 0.6, "subagent": true },
+    { "id": "T03-03", "domain": "api-endpoints", "n_files": 8, "chain": 5, "strict": 0.8, "subagent": false },
+    { "id": "T03-04", "domain": "database-schemas", "n_files": 5, "chain": 4, "strict": 0.7, "subagent": true },
+    { "id": "T03-05", "domain": "monitoring-dashboards", "n_files": 6, "chain": 3, "strict": 0.5, "subagent": true },
+    { "id": "T03-06", "domain": "ci-pipelines", "n_files": 5, "chain": 4, "strict": 0.6, "subagent": false },
+    { "id": "T03-07", "domain": "feature-modules", "n_files": 7, "chain": 5, "strict": 0.8, "subagent": true },
+    { "id": "T03-08", "domain": "policy-docs", "n_files": 5, "chain": 3, "strict": 0.4, "subagent": true },
+    { "id": "T03-09", "domain": "test-suites", "n_files": 6, "chain": 4, "strict": 0.7, "subagent": false },
+    { "id": "T03-10", "domain": "doc-corpus-mixed", "n_files": 8, "chain": 5, "strict": 0.7, "subagent": true }
+  ]
+}

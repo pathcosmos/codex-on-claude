@@ -1,0 +1,50 @@
+{
+  "scenario": "T06-06",
+  "notes": "T06 subagent — error-logs × 3, ~60KB, strict=0.4",
+  "criteria": [
+    {
+      "name": "issues_min_3",
+      "type": "final_json_array_min",
+      "args": {
+        "field": "issues",
+        "min": 3
+      }
+    },
+    {
+      "name": "files_analyzed_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "files_analyzed"
+      }
+    },
+    {
+      "name": "mentions_input_kind",
+      "type": "contains_text",
+      "args": {
+        "needle": "error"
+      }
+    },
+    {
+      "name": "beta_main_protected",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_response_size_p95_max",
+        "inner_args": {
+          "max_chars": 20000
+        }
+      }
+    },
+    {
+      "name": "beta_delegated_field",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "final_json_field",
+        "inner_args": {
+          "field": "delegated_to"
+        }
+      }
+    }
+  ]
+}

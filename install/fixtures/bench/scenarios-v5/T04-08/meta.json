@@ -1,0 +1,13 @@
+{
+  "id": "T04-08",
+  "template": "T04",
+  "category": "Hard reasoning / constraint",
+  "hypothesis_target": "P3_reasoning_high",
+  "params": {
+    "id": "T04-08",
+    "problem": "system-of-equations",
+    "size": "small",
+    "constraints": 4
+  },
+  "generated_at": "2026-05-20T14:30:11.160Z"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "T07-10",
+  "template": "T07",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P6_ceiling",
+  "params": {
+    "id": "T07-10",
+    "task": "list-dependencies",
+    "lang": "json",
+    "loc": 15
+  },
+  "generated_at": "2026-05-21T00:00:58.790Z"
+}

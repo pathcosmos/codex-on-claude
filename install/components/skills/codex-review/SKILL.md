@@ -7,6 +7,16 @@ description: Use when the user wants a second-opinion code review from Codex on 
 
 Use Codex CLI as a secondary reviewer for the current working changes (or a specific set of files / diff). Stays read-only by default.
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+- `none` — Skill exits immediately; PreToolUse gate denies `mcp__codex__codex`. Tell the user "Codex calls are disabled by usageMode=none; run `codex-on-claude reconfigure --usage-mode=synergy` to enable" and proceed with α-only review.
+- `synergy` — Follow the Quick-Ref tree. Most review tasks fall under **R1 Adversarial framing** (★★★ default).
+- `auto` — Run `node ~/.claude/codex-on-claude/install/detect-signals.mjs` (or the bundled module) to confirm adversarial-defect signal before invoking. Tier 2 LLM probe = `{{autoTier2LLMProbe}}`.
+- `max` — R1 fires by default for any defect-finding review. On chain+strict prompts the decision tree routes to **R4 γ hot-swap** (Codex CLI direct, bypassing the MCP β orchestration entirely). R6 Format-Safe Handoff is the synergy-mode equivalent — same goal, gentler escalation.
+
+Hard guardrails (any mode): P-Chain-JSON Trap = `{{guardrailChainJson}}`, P-Subagent-Strict = `{{guardrailSubagent}}`, Turn Burn stop = `{{guardrailTurnBurn}}`, Ceiling no-upside = `{{guardrailCeiling}}`.
+
 ## When to use
 - Want an independent Codex opinion on the current branch / diff / named files
 - Need a quick risk / missing-test / edge-case scan of a change

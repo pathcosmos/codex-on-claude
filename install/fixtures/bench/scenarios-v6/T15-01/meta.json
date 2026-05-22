@@ -1,0 +1,14 @@
+{
+  "id": "T15-01",
+  "template": "T15",
+  "category": "TDD edge cases",
+  "hypothesis_target": "P4_tdd_followup_revised",
+  "params": {
+    "id": "T15-01",
+    "module": "deque-basic",
+    "explicit_edges": 3,
+    "hidden_edges": 0,
+    "alpha_target_pct": "100"
+  },
+  "generated_at": "2026-05-21T07:58:47.946Z"
+}

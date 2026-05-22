@@ -1,0 +1,1 @@
+SELECT * FROM orders WHERE customer_id = 100 OR shipping_zip = '12345';

@@ -1,0 +1,39 @@
+{
+  "scenario": "T15-04",
+  "notes": "T15 α-fail-dial — skiplist-concurrent, explicit=1, hidden=3, α=45%",
+  "criteria": [
+    {
+      "name": "tests_pass_json",
+      "type": "final_json_field",
+      "args": {
+        "field": "tests_pass",
+        "equals": true
+      }
+    },
+    {
+      "name": "tests_added_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "tests_added"
+      }
+    },
+    {
+      "name": "mentions_edge",
+      "type": "contains_text",
+      "args": {
+        "needle": "edge"
+      }
+    },
+    {
+      "name": "beta_finds_hidden",
+      "type": "arm_specific",
+      "args": {
+        "arm": "beta",
+        "inner_type": "final_json_field",
+        "inner_args": {
+          "field": "hidden_cases_found"
+        }
+      }
+    }
+  ]
+}

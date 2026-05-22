@@ -1,0 +1,1 @@
+function check(x) { reutrn x === 'ok'; }

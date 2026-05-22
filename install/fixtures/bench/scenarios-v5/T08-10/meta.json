@@ -1,0 +1,13 @@
+{
+  "id": "T08-10",
+  "template": "T08",
+  "category": "Internationalization (i18n)",
+  "hypothesis_target": "NEW",
+  "params": {
+    "id": "T08-10",
+    "issue": "comparison-locale",
+    "lang": "java",
+    "n_violations": 4
+  },
+  "generated_at": "2026-05-21T00:00:58.794Z"
+}

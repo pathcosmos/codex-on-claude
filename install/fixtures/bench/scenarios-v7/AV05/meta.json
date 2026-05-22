@@ -1,0 +1,13 @@
+{
+  "id": "AV05",
+  "template": "AV",
+  "category": "Adversarial review (non-T12)",
+  "hypothesis_target": "P2_generalizability",
+  "params": {
+    "id": "AV05",
+    "domain": "xxe-xml-parse",
+    "subtle_bug": "external_entity_unblocked",
+    "lang": "py"
+  },
+  "test": "does adversarial framing generalize beyond T12 template?"
+}

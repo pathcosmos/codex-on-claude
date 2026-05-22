@@ -57,10 +57,15 @@ const testsExit = fs.existsSync(testsExitPath)
   ? parseInt(fs.readFileSync(testsExitPath, 'utf8').trim(), 10)
   : null;
 
+const toolResultSizesPath = path.join(outDir, 'tool_result_sizes.json');
+const toolResultSizes = fs.existsSync(toolResultSizesPath)
+  ? JSON.parse(fs.readFileSync(toolResultSizesPath, 'utf8'))
+  : { count: 0, p50: 0, p95: 0, max: 0, sum: 0 };
+
 // ---- evaluate each criterion ----
 const criteria = {};
 for (const c of oracle.criteria || []) {
-  criteria[c.name] = evaluate(c, { finalText, finalJson, toolCalls, changedFiles, testsExit, arm, oracle });
+  criteria[c.name] = evaluate(c, { finalText, finalJson, toolCalls, changedFiles, testsExit, toolResultSizes, arm, oracle });
 }
 
 const passed = Object.values(criteria).filter((r) => r.pass).length;
@@ -182,6 +187,53 @@ function evaluate(criterion, ctx) {
         if (ctx.arm !== args.arm) return { pass: true, detail: `n/a on ${ctx.arm}` };
         // Delegate to inner type.
         return evaluate({ type: args.inner_type, args: args.inner_args || {} }, ctx);
+      }
+      case 'doc_section_exists': {
+        // args.sections: array of strings. Each must appear as a Markdown header in final_text.
+        // Match `# ${section}`, `## ${section}`, `### ${section}`, etc. (case-insensitive).
+        const sections = args.sections || [];
+        const missing = sections.filter((s) => {
+          const re = new RegExp(`^#{1,6}\\s+.*\\b${s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\b`, 'im');
+          return !re.test(ctx.finalText);
+        });
+        return { pass: missing.length === 0, detail: missing.length ? `missing sections: ${missing.join(', ')}` : `all ${sections.length} sections present` };
+      }
+      case 'tool_call_response_size_p95_max': {
+        // Main-context bloat guard. Fails if p95 of tool_result response sizes > args.max_chars.
+        const max = args.max_chars;
+        const p95 = ctx.toolResultSizes?.p95 ?? 0;
+        return { pass: p95 <= max, detail: `tool_result p95 = ${p95} chars (max ${max}, samples=${ctx.toolResultSizes?.count ?? 0})` };
+      }
+      case 'tool_call_sequence_matches': {
+        // Verify that a specified sequence of tool calls happened in order.
+        // args.sequence: array of tool-name patterns (prefix match). args.allow_extra: bool (default true).
+        // E.g. {sequence: ["mcp__codex__codex", "mcp__codex__codex", "mcp__codex__codex-reply"], allow_extra: true}
+        const seq = args.sequence || [];
+        const allowExtra = args.allow_extra !== false;
+        const names = ctx.toolCalls.map((c) => c.name || '');
+        let i = 0;
+        for (const name of names) {
+          if (i >= seq.length) break;
+          if (name === seq[i] || (name && seq[i] && name.startsWith(seq[i]))) i++;
+          else if (!allowExtra) { return { pass: false, detail: `sequence broken at idx ${i}: expected '${seq[i]}', got '${name}'` }; }
+        }
+        return { pass: i >= seq.length, detail: `matched ${i}/${seq.length} of sequence [${seq.join(', ')}] in ${names.length} calls` };
+      }
+      case 'distinct_skills_invoked_min': {
+        // Count distinct tool names invoked. args.min: int. args.prefix_filter: optional prefix to consider.
+        const prefix = args.prefix_filter || '';
+        const distinct = new Set(
+          ctx.toolCalls.map((c) => c.name || '').filter((n) => !prefix || n.startsWith(prefix))
+        );
+        return { pass: distinct.size >= args.min, detail: `${distinct.size} distinct tools (min ${args.min}): ${[...distinct].join(', ').slice(0, 200)}` };
+      }
+      case 'final_state_has_files': {
+        // Verify that specific files exist in the workspace after the run.
+        // args.paths: array of relative paths. args.workspace_dir: optional override.
+        // Note: in run.sh, $WORK is $OUT/workspace, and tests run from $WORK. score.mjs gets out-dir which is $OUT.
+        const wsDir = args.workspace_dir || path.join(outDir, 'workspace');
+        const missing = (args.paths || []).filter((p) => !fs.existsSync(path.join(wsDir, p)));
+        return { pass: missing.length === 0, detail: missing.length ? `missing files: ${missing.join(', ')}` : `all ${args.paths?.length || 0} files present` };
       }
       default:
         return { pass: false, detail: `unknown criterion type: ${type}` };

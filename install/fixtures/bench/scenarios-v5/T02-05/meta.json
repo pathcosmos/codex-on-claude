@@ -1,0 +1,14 @@
+{
+  "id": "T02-05",
+  "template": "T02",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P2_adversarial",
+  "params": {
+    "id": "T02-05",
+    "domain": "url-normalizer",
+    "subtle_bug": "scheme_confusion",
+    "lang": "ts",
+    "decoys": 1
+  },
+  "generated_at": "2026-05-20T14:30:11.148Z"
+}

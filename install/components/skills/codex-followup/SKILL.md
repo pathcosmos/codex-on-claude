@@ -7,6 +7,12 @@ description: Use when continuing an existing Codex thread with a follow-up quest
 
 Use `mcp__codex__codex-reply` to continue the **same Codex session** with the `threadId` returned by a previous call. Most efficient option within the lifetime of a single MCP server process.
 
+## Usage mode (v0.5.0)
+**Current mode**: `{{usageMode}}` — {{modeBehavior}}
+
+- `none` — Gate blocks `mcp__codex__codex-reply`. Surface "Codex disabled by usageMode=none" and return α-only.
+- `synergy` / `auto` / `max` — All allowed, but the **P-Turn-Burn stop rule** (`{{guardrailTurnBurn}}`) still applies: stop after 3 followup turns unless new context arrived (file changes, new error, user adds detail). Stale loops add cost without quality.
+
 ## When to use
 - A `threadId` from a previous `/codex-review` or `mcp__codex__codex` call is in the main context, and you need a follow-up question that depends on that context
 - "About that last answer, can you also explain X" — anything context-dependent

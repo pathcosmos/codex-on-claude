@@ -1,0 +1,8 @@
+{
+  "id": "LB-04",
+  "template": "LLM",
+  "category": "Synthesis",
+  "hypothesis_target": "P4_tdd_followup",
+  "generated_at": "2026-05-21T00:35:29.963Z",
+  "generator": "B"
+}

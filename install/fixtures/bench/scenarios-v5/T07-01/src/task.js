@@ -1,0 +1,1 @@
+function foo() { return 1 } function bar( {} // syntax error here in line 2: missing closing paren

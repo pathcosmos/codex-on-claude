@@ -1,0 +1,13 @@
+{
+  "id": "T07-08",
+  "template": "T07",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P6_ceiling",
+  "params": {
+    "id": "T07-08",
+    "task": "rename-variable",
+    "lang": "py",
+    "loc": 25
+  },
+  "generated_at": "2026-05-21T00:00:58.789Z"
+}

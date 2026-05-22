@@ -1,0 +1,8 @@
+{
+  "id": "LG-06",
+  "template": "LLM",
+  "category": "SQL optimization",
+  "hypothesis_target": "P6_ceiling",
+  "generated_at": "2026-05-21T00:38:51.145Z",
+  "generator": "G"
+}

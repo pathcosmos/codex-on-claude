@@ -1,0 +1,1 @@
+Analyze this cache implementation for race conditions. Trace execution when get() is called twice rapidly with the same key from two concurrent requests. Identify the timing-dependent bug. Explain why it occurs and provide a fixed version. Return JSON with: bug_location, race_condition_mechanism, fixed_code.

@@ -1,0 +1,1 @@
+Identify all type coercion bugs in this code. For each comparison, provide problematic inputs that would cause unexpected behavior. Explain why each loose equality check is dangerous. Provide corrected version using strict equality and proper type handling. Return JSON with: bugs (array with line, issue, problematic_input, fix).

@@ -1,0 +1,14 @@
+{
+  "id": "T02-10",
+  "template": "T02",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P2_adversarial",
+  "params": {
+    "id": "T02-10",
+    "domain": "queue-priority",
+    "subtle_bug": "heap_invariant_broken_on_remove",
+    "lang": "java",
+    "decoys": 2
+  },
+  "generated_at": "2026-05-20T14:30:11.150Z"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "T02",
+  "name": "adversarial-review",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P2_adversarial",
+  "description": "Review task with planted SUBTLE bugs (not obvious surface issues). β-arm: explicit adversarial framing.",
+  "param_combos": [
+    { "id": "T02-01", "domain": "auth-token-comparison", "subtle_bug": "timing_attack", "lang": "js", "decoys": 2 },
+    { "id": "T02-02", "domain": "money-rounding", "subtle_bug": "float_precision", "lang": "py", "decoys": 2 },
+    { "id": "T02-03", "domain": "concurrent-counter", "subtle_bug": "lost_update", "lang": "go", "decoys": 1 },
+    { "id": "T02-04", "domain": "csv-parser", "subtle_bug": "embedded_quote_escape", "lang": "py", "decoys": 2 },
+    { "id": "T02-05", "domain": "url-normalizer", "subtle_bug": "scheme_confusion", "lang": "ts", "decoys": 1 },
+    { "id": "T02-06", "domain": "rate-window-slide", "subtle_bug": "off_by_one_at_boundary", "lang": "js", "decoys": 2 },
+    { "id": "T02-07", "domain": "cache-eviction-policy", "subtle_bug": "lru_recency_not_updated", "lang": "py", "decoys": 1 },
+    { "id": "T02-08", "domain": "retry-backoff", "subtle_bug": "jitter_seeded_deterministic", "lang": "go", "decoys": 2 },
+    { "id": "T02-09", "domain": "feature-flag-eval", "subtle_bug": "default_returned_on_error", "lang": "ts", "decoys": 1 },
+    { "id": "T02-10", "domain": "queue-priority", "subtle_bug": "heap_invariant_broken_on_remove", "lang": "java", "decoys": 2 }
+  ]
+}

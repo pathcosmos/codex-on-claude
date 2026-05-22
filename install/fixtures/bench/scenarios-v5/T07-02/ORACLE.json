@@ -1,0 +1,28 @@
+{
+  "scenario": "T07-02",
+  "notes": "T07 ceiling baseline — spot-typo/md",
+  "criteria": [
+    {
+      "name": "answer_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "answer"
+      }
+    },
+    {
+      "name": "task_field",
+      "type": "final_json_field",
+      "args": {
+        "field": "task",
+        "equals": "spot-typo"
+      }
+    },
+    {
+      "name": "mentions_task_keyword",
+      "type": "contains_text",
+      "args": {
+        "needle": "spot"
+      }
+    }
+  ]
+}

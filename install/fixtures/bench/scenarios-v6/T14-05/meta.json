@@ -1,0 +1,15 @@
+{
+  "id": "T14-05",
+  "template": "T14",
+  "category": "Multi-doc synthesis",
+  "hypothesis_target": "P5_catastrophe_dial",
+  "params": {
+    "id": "T14-05",
+    "domain": "cross-team-rfc",
+    "n_files": 8,
+    "implicit_required": 5,
+    "alpha_target_pct": "30",
+    "json_strict": 0.8
+  },
+  "generated_at": "2026-05-21T07:58:47.945Z"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "T10-07",
+  "template": "T10",
+  "category": "SQL query optimization",
+  "hypothesis_target": "NEW",
+  "params": {
+    "id": "T10-07",
+    "antipattern": "or-prevents-index",
+    "dialect": "postgres",
+    "tables": 2
+  },
+  "generated_at": "2026-05-21T00:00:58.802Z"
+}

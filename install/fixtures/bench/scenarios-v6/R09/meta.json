@@ -1,0 +1,15 @@
+{
+  "id": "R09",
+  "template": "R",
+  "category": "Code review (Python)",
+  "hypothesis_target": "NEW_real_codebase",
+  "source": {
+    "path": "~/exdata/contents_blocker/itssa_airflow_vscode/scripts/test_single_post_to_mongo.py",
+    "focus": "MongoDB test + edge cases"
+  },
+  "params": {
+    "task": "review",
+    "focus": "MongoDB test + edge cases"
+  },
+  "generated_at": "2026-05-21T10:12:30.562Z"
+}

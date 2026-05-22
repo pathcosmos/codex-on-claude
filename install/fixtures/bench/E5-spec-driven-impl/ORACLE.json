@@ -1,0 +1,16 @@
+{
+  "scenario": "E5-spec-driven-impl",
+  "notes": "CSV parser spec — 7 behaviors. Tricky parts: quoted fields with comma, escaped quotes. β: review spec → impl → review impl chain.",
+  "criteria": [
+    { "name": "tests_pass", "type": "tests_pass" },
+    { "name": "parser_file_exists", "type": "final_state_has_files", "args": { "paths": ["parser.js"] } },
+    { "name": "tests_pass_json", "type": "final_json_field", "args": { "field": "tests_pass", "equals": true } },
+    { "name": "spec_items_field", "type": "final_json_field", "args": { "field": "spec_items_satisfied" } },
+    { "name": "mentions_csv_or_quote", "type": "contains_text", "args": { "needle": "quote" } },
+    { "name": "beta_used_codex", "type": "arm_specific", "args": {
+        "arm": "beta",
+        "inner_type": "tool_call_count_min",
+        "inner_args": { "name": "mcp__codex__codex", "min": 1 }
+    } }
+  ]
+}

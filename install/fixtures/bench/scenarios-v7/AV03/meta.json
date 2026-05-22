@@ -1,0 +1,13 @@
+{
+  "id": "AV03",
+  "template": "AV",
+  "category": "Adversarial review (non-T12)",
+  "hypothesis_target": "P2_generalizability",
+  "params": {
+    "id": "AV03",
+    "domain": "integer-overflow",
+    "subtle_bug": "unchecked_arithmetic",
+    "lang": "go"
+  },
+  "test": "does adversarial framing generalize beyond T12 template?"
+}

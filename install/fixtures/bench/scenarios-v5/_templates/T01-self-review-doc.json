@@ -1,0 +1,19 @@
+{
+  "id": "T01",
+  "name": "self-review-doc",
+  "category": "Documentation authoring",
+  "hypothesis_target": "P1_self_review",
+  "description": "Doc authoring task. β-arm: 2-round self-review loop (D1 pattern). α-arm: single-pass.",
+  "param_combos": [
+    { "id": "T01-01", "module": "rate-limiter", "lang": "js", "loc": 80, "sections": 5 },
+    { "id": "T01-02", "module": "cache-lru", "lang": "py", "loc": 60, "sections": 5 },
+    { "id": "T01-03", "module": "retry-backoff", "lang": "go", "loc": 70, "sections": 4 },
+    { "id": "T01-04", "module": "event-bus", "lang": "rs", "loc": 100, "sections": 6 },
+    { "id": "T01-05", "module": "circuit-breaker", "lang": "java", "loc": 90, "sections": 5 },
+    { "id": "T01-06", "module": "feature-flag", "lang": "ts", "loc": 75, "sections": 5 },
+    { "id": "T01-07", "module": "session-store", "lang": "py", "loc": 85, "sections": 5 },
+    { "id": "T01-08", "module": "schema-validator", "lang": "ts", "loc": 95, "sections": 5 },
+    { "id": "T01-09", "module": "request-router", "lang": "go", "loc": 70, "sections": 5 },
+    { "id": "T01-10", "module": "config-merger", "lang": "py", "loc": 65, "sections": 5 }
+  ]
+}

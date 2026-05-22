@@ -247,6 +247,44 @@ function ruleSimilarTagCluster(_entries, threadsList) {
   }];
 }
 
+// v0.5.0 — detects when config.usageMode drifts from observed runtime behavior.
+//   none + observed Codex calls   → gate hook missing or stale binary; reinstall.
+//   max + no Codex calls in window → either no eligible tasks, or hook tools blocked despite mode=max.
+function ruleUsageModeDrift(entries, config) {
+  const mode = config?.choices?.usageMode;
+  if (!mode || mode === "synergy" || mode === "auto") return []; // synergy/auto don't drift mechanically
+
+  // G7 fix: ignore log entries written BEFORE the current usageMode took effect.
+  // Without this, every mode-switch produces immediate false-positive drift because the
+  // 14-day analysis window still contains entries from the prior mode.
+  const updatedAtMs = Date.parse(config?.updatedAt || "");
+  const inScope = Number.isFinite(updatedAtMs)
+    ? entries.filter((e) => Date.parse(e?.ts || "") >= updatedAtMs)
+    : entries;
+  const total = inScope.length;
+
+  if (mode === "none" && total > 0) {
+    return [{
+      id: "usage-mode-drift-none",
+      category: "reliability",
+      title: "usageMode=none but Codex calls were logged",
+      finding: `${total} Codex MCP call(s) recorded after the most recent reconfigure (config.updatedAt) while usageMode=none.`,
+      recommendation: "Reinstall the PreToolUse gate hook — likely a stale `codex-on-claude` binary or settings.json edit.",
+      applyHint: "codex-on-claude reconfigure --usage-mode=none --yes",
+    }];
+  }
+  if (mode === "max" && total === 0) {
+    return [{
+      id: "usage-mode-drift-max-idle",
+      category: "synergy",
+      title: "usageMode=max but no Codex calls observed since the last reconfigure",
+      finding: `0 calls since config.updatedAt — max mode expects active probing on review/TDD/reasoning tasks.`,
+      recommendation: "Confirm at least one eligible task was attempted; otherwise consider usageMode=synergy to reduce noise.",
+    }];
+  }
+  return [];
+}
+
 const RULES = [
   ruleLargeResponsesNotAgent,
   ruleRepeatedPrompts,
@@ -255,6 +293,7 @@ const RULES = [
   ruleTimeouts,
   ruleFrequentFallback,
   ruleNoLogs,
+  // Note: ruleUsageModeDrift needs config — invoked separately in runAnalyze.
 ];
 
 const THREAD_RULES = [
@@ -284,6 +323,7 @@ export async function runAnalyze({ days = 14, format = "text", save = false } = 
   let candidates = [];
   for (const rule of RULES) candidates.push(...rule(entries));
   for (const rule of THREAD_RULES) candidates.push(...rule(entries, threadsList));
+  candidates.push(...ruleUsageModeDrift(entries, config));
   candidates = filterRecentlyDismissed(candidates, improvements);
 
   const report = {

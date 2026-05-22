@@ -1,0 +1,13 @@
+{
+  "id": "T13-02",
+  "template": "T13",
+  "category": "Hard reasoning",
+  "hypothesis_target": "P3_reasoning_high_revised",
+  "params": {
+    "id": "T13-02",
+    "problem": "2-color-graph",
+    "constraints": 2,
+    "alpha_target_pct": "90"
+  },
+  "generated_at": "2026-05-21T07:58:47.940Z"
+}

@@ -1,0 +1,1 @@
+Identify state machine bugs in this CSV parser. Find incorrect state transitions and incomplete handling. For each bug, provide the problematic input sequence that causes incorrect parsing. Explain what should happen at each transition. Provide fixed code. Return JSON with: bugs (array with state, issue, problematic_input, correct_transition).

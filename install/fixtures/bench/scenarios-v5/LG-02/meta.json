@@ -1,0 +1,8 @@
+{
+  "id": "LG-02",
+  "template": "LLM",
+  "category": "Regex/ReDoS",
+  "hypothesis_target": "P2_adversarial",
+  "generated_at": "2026-05-21T00:38:51.142Z",
+  "generator": "G"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "T07-04",
+  "template": "T07",
+  "category": "Code review (single-shot)",
+  "hypothesis_target": "P6_ceiling",
+  "params": {
+    "id": "T07-04",
+    "task": "list-public-functions",
+    "lang": "go",
+    "loc": 50
+  },
+  "generated_at": "2026-05-21T00:00:58.788Z"
+}

@@ -2,6 +2,117 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] — 2026-05-22
+
+### Added — Usage-mode policy (largest UX change since 0.4.0)
+
+- **4-mode taxonomy: `none / synergy / auto / max`** for Codex invocation policy. Users pick at install time and reconfigure freely. Each mode shapes Skill behavior + Codex call frequency:
+  - `none` — Codex calls are blocked at a new **PreToolUse gate hook** (`hooks.mjs:installGate`). The gate denies `mcp__codex__codex` + `mcp__codex__codex-reply` with a structured reason string Claude Code displays.
+  - `synergy` — Default. Follows the v9 Quick-Ref 3-Q decision tree + R1–R6 recipes (`docs/guidance-quick-ref.md`, `docs/synergy-playbook.md`).
+  - `auto` — Tier 1 heuristic signal detection via `install/detect-signals.mjs`. When confidence < 0.7 AND `autoTier2LLMProbe` is `on`, escalates to a $0.01–0.02 Codex meta-classifier (`install/auto-probe.mjs`) for ambiguous tasks.
+  - `max` — Quality-first bounded automation. R1 fires by default on review tasks; R5 always probes; γ hot-swap auto-fires on P5 catastrophe signals. **Hard DO-NOT rules (Chain-JSON Trap, Subagent-Strict, Turn Burn) still enforced** — max ≠ override.
+- **New `--usage-mode` install flag** + matching interactive prompt (becomes question §7 in the install wizard). Accompanying `--auto-tier2-llm-probe=on|off` flag controls the Tier 2 probe (auto mode only).
+- **New `install/detect-signals.mjs` module** — pure heuristic Tier 1 classifier. Null-safe, multi-format chain detection (numbered / lettered / first-then-finally / step variants), structured-output detection covers JSON / YAML / CSV / TS schema. Exports `detectSignals`, `applyDecisionTree`, `computeConfidence`. CLI entry point for ad-hoc invocation.
+- **New `install/auto-probe.mjs` module** — Tier 2 LLM probe. Wraps `codex exec --sandbox=read-only --json` with a meta-classification prompt; logs every probe to `~/.claude/codex-on-claude/logs/auto-probe.jsonl` (event, latency, classification). Fails open when Codex CLI is missing.
+- **New `codex-on-claude gate --from-stdin` sub-command** — PreToolUse hook handler. Reads Claude Code's hook payload, consults `config.json`'s `usageMode`, and writes a `{decision, reason}` JSON block to stdout when calls must be blocked. Pure `decideGate(payload, config)` function exported for unit testing.
+- **New analyzer rule `ruleUsageModeDrift`** (`install/analyze.mjs`) — detects when `config.usageMode` is incoherent with observed runtime behavior (e.g. `none` + logged Codex calls = stale binary / hook missing; `max` + zero calls in window = idle).
+- **New `guardrails` config block** — `chainJsonTrap`, `subagentStrict`, `turnBurn`, `ceilingNoUpside` defaults enforced even in `max` mode. Surfaced to Skill prose as `{{guardrail*}}` template placeholders.
+- **R6 Format-Safe Handoff recipe** added across all guidance/Skill docs — when a task needs both adversarial review AND strict structured output, Codex emits prose (R1 framing) and Claude does format normalization. Sidesteps the P5 Chain-JSON Trap without losing R1's +6~+30pp lift.
+
+### Changed
+
+- **Skill prose is mode-aware.** All 9 SKILL.md files (`codex-review`, `codex-followup`, `codex-resume`, `codex-fix`, `codex-routine`, `codex-analyze`, `codex-improve`, `codex-log`, `codex-threads`) and both reviewer agents now begin with a compact `## Usage mode (v0.5.0)` section that branches on `{{usageMode}}`. `codex-log` and `codex-threads` (and the catalog half of `codex-threads`) remain allowed in `none` mode because they operate on local files only.
+- **`buildModelVars()` in `install.mjs`** now emits `usageMode`, `modeBehavior`, `autoTier2LLMProbe`, and 4 `guardrail*` placeholders to the templater so the Skill prose renders correctly.
+- **manifest.json `questions`** expanded from 6 to 7 fields: `usageMode` (single-select × 4) + `autoTier2LLMProbe` (single-select × 2) + `guardrails` (info / non-configurable defaults).
+- **Review table** in the install wizard shows two new rows: `usageMode` and `autoTier2`. The latter is suffixed `(auto-mode only)` when `usageMode ≠ auto`.
+- **`codex-on-claude status`** now prints active `usageMode` + Tier 2 probe state + PreToolUse gate hook count.
+
+### Migration (existing users)
+
+- **`config.json` migration is silent and conservative.** When `npx codex-on-claude@latest` runs on an install that pre-dates 0.5.0 (no `usageMode` field), the installer fills `usageMode: "synergy"` and `autoTier2LLMProbe: true` **without prompting**. The current behavior is preserved (Codex calls work as before, R1–R5 recipes follow the v9 guidance). The new `## Usage mode` section in each SKILL.md gets rendered with the new defaults on the next reconfigure run.
+- **To switch modes**, run `codex-on-claude reconfigure` (prompts §1–§7 surface) or `codex-on-claude reconfigure --usage-mode=max --yes`.
+- **PreToolUse gate hook** is only installed when `usageMode === "none"`. Otherwise no new entries appear in `~/.claude/settings.json`.
+
+### Final pre-ship review (5th Codex audit pass — A-series)
+
+Even after 24 prior fixes (F1-F8, G1-G7, H1-H7, B1-B6, H1-H4 Bash-precision, M1-M3), a 5th Codex peer review caught 4 more issues. All applied before publish:
+
+- **A1**: `cmdUninstall` now iterates `installed.agents[]` (v0.4.1+ array) not just legacy `installed.agent`. Previously the fallback reviewer agent (`codex-reviewer-fallback.md`) was orphaned on uninstall — left behind in `~/.claude/agents/` forever. Also: when state is missing, best-effort cleanup against manifest-known targets instead of silent skip. Backward-compat: legacy `installed.agent` singular field still honored.
+- **A2**: `applyInstallation` now copies `detect-signals.mjs` + `auto-probe.mjs` into `~/.claude/codex-on-claude/install/`. SKILL.md auto-mode preamble references this path (`node ~/.claude/codex-on-claude/install/detect-signals.mjs`); without the copy, auto mode would be doc-on-arrival broken — Claude would try to invoke a nonexistent file. Tracked as `installed.helpers` in `config.json`. Idempotent — re-runs overwrite with current package version.
+- **A3**: `writeJson` / `writeSettings` / `threads.writeJson` now wrap `fs.rename(tmp, target)` in try/catch + `fs.rm(tmp, {force:true})` on failure. Previously cross-FS rename or permission-denied rename would leak `*.tmp-PID-TS` files in user directories.
+- **A4**: `docs/release-notes-0.5.0.md` corrected — gate hook description now reflects the actual installed matchers (`mcp__codex__.*` wildcard regex + `Bash` for CLI bypass) and the `--enforce-mode=none` baked-in flag. Was still describing the original two exact matchers from the initial v0.5.0 build.
+
+### Final verification stats (post 5 Codex review cycles)
+
+- **Automated test cases: 168 / 168 PASS** (112 unit + 37 integration + 17 installer-flow + 2 regression with 7 internal cases). Up from 100 in the initial v0.5.0 build.
+- **npm tarball: 113 kB / 32 files** (down from initial 14.7 MB / 11,042 files — 99.2% size reduction via explicit `files` allowlist + `.npmignore`).
+- **Total fixes applied to v0.5.0**: 28 (F1-F8 + G1-G7 + H1-H7 + B1-B6 + H1-H4 Bash + M1-M3 + A1-A4).
+- **5 Codex peer review passes**: L6.1 (initial), L6.2 (adversarial), pre-ship audit (3 sub-agents + 1 Codex), final pre-ship Codex review. All findings resolved before publish.
+- **Known limitations**: 1 only — in-flight Codex calls during mode toggle (Claude Code hook system limitation, not our defect).
+
+### Pre-ship audit hardening (B/H/M-series — pass before final A-series)
+
+After H1–H7 (every v0.5.1-deferred item) were implemented, a final pre-ship audit using 3 parallel sub-agents + Codex peer review surfaced 13 additional issues across npm packaging, code-level correctness, and doc drift. **All applied before publish**:
+
+**Ship blockers (6) — all fixed**:
+- **B1**: `install/auto-probe.mjs` + `install/detect-signals.mjs` (new v0.5.0 modules) explicitly listed in `package.json:files`. Without explicit listing they would have been omitted from the npm tarball, causing runtime ImportError on consumer installs.
+- **B2**: `.npmignore` + explicit `files` allowlist. Tarball shrank from **14.7 MB / 11,042 files** to **113 kB / 32 files** (99% reduction). `install/fixtures/bench/` (53 MB of v1-v9 benchmark data) + `install/fixtures/v05/` (130+ test cases) + internal R&D docs (v5-v9 analysis, test-* logs, implementation-log) now excluded.
+- **B3**: `cmdGate` no longer `process.exit(2)` after hard-deny. The previous behavior could (a) truncate stdout JSON because Node's stdout is async on non-TTY streams, and (b) violate Claude Code's "exit 0 with JSON decides" hook contract — making hosts ignore our deny entirely. Now: stderr backstop FIRST (synchronous), then stdout JSON, then natural exit 0. Updated 14 test assertions across hook-shape-dual + cmd-gate-fail-closed.
+- **B4**: Bash gate catches shell-wrapper bypasses. `eval "codex exec ..."`, `sh -c '...'`, `bash -lc '...'`, `env CODEX_HOME=/tmp codex exec`, `exec codex exec`, backtick subshells, `$(codex exec)`, compound commands (`; codex`, `&& codex`, `|| codex`, `| codex`) all now correctly denied under `usageMode=none`. Codex L6.2 missed these — the audit caught them.
+- **B5**: `uninstall` ALWAYS reconciles actual `~/.claude/settings.json` against our markers, regardless of `state.installed.gateHooks`. Previously a state drift (manual edit, prior version corruption) could leave orphan `--enforce-mode=none` PreToolUse hooks behind, permanently blocking Codex.
+- **B6**: Doc drift fixed — `docs/security-review-0.5.0.md` no longer says "Deferred to v0.5.1" for attacks #4 and #5 (both implemented as H1 and H2). `docs/test-execution-results-0.5.0.md` test counts updated to reflect the 161-case suite.
+
+**High-priority (4) — all fixed**:
+- **H1 (Bash precision)**: Bash gate no longer false-positives on `grep codex README.md`, `echo "var codex = 1"`, `cat codex.md`, `find . -name "*codex*"`. The regex now requires `codex` to be at a COMMAND position (BOL, `;`, `&&`, `||`, `|`, backtick, `(`, `$(`), not in argument position.
+- **H2 (readSettings)**: Malformed `~/.claude/settings.json` no longer silently treated as `{}` (which would clobber the user's entire settings on next write). Now throws with `SETTINGS_MALFORMED`; callers back up to `settings.json.corrupt-<timestamp>` and surface a stderr warning.
+- **H3 (adversarial precision)**: "Find naming issues", "Find open issues in GitHub", "Find edge cases in spec" no longer trigger R1. A STRONG defect token (`security|bug|defect|race|injection|xss|xxe|vulnerability|contradiction|adversarial`) is now required alongside the find-pattern.
+- **H4 (mergeClassification mode arg)**: `mergeClassification(tier1Result, classification, mode)` — Tier 2 LLM probe path now respects `mode=max` for chain-strict (routes to R4 γ hot-swap), matching Tier 1 (`applyDecisionTree`) behavior. Without this, max mode + ambiguous chain-strict prompts were silently routed to R6 via Tier 2 even though Tier 1 would have routed to R4.
+
+**Medium polish (3) — all fixed**:
+- **M1**: `STRICT_FIELD_LIST` threshold raised from ≥3 identifiers to ≥4 (3 commas) for fewer benign-prose false-positives. "Add fields: foo, bar to the response" no longer flags strict-output.
+- **M2**: `threads.writeJson` + `auto-probe.logProbe` chmod parent dir to 0700 (best-effort). Previously only `applyInstallation`'s `ensureDir` did this, leaving a window where catalog files / probe logs were created with default umask on a fresh install.
+- **M3**: `package.json:files` explicit enumeration (no more `install/` wildcard pulling in fixtures); removed unused `typescript` devDep; added `README.ko.md` to files. (`README.ko.md` was auto-included by npm anyway but the explicit listing makes intent clear.)
+
+### v0.5.0 final hardening (H1–H7 — pre-ship implementation of every deferred item)
+
+Before ship, every item originally deferred to v0.5.1 was implemented and verified against the same 129-test suite. The Known limitations list at the bottom of this entry is now empty for v0.5.0:
+
+- **H1: Dual hook decision shape.** `cmdGate` now emits the legacy `{decision, reason}` AND the new `{hookSpecificOutput: {hookEventName, permissionDecision, permissionDecisionReason}}` shape so the gate works across Claude Code 2.1.x (legacy) and any future version that requires the new schema. Hard-denies (Codex-shaped tools) additionally write the reason to stderr and `process.exit(2)` as a backstop in case the host ignores the JSON output.
+- **H2: Race-free gate + atomic state writes.** The gate hook command now embeds `--enforce-mode=none` directly so the gate decision never reads `config.json` (eliminating the sub-second toggle-race window between `settings.json` and `config.json` writes). `saveState`, `writeSettings`, and `threads.writeJson` all use `temp+rename` for atomic writes; concurrent readers never observe a torn JSON document.
+- **H3: Gate state reconciliation.** `applyInstallation` now ALWAYS checks the actual `~/.claude/settings.json` PreToolUse state on every reconfigure, regardless of `installed.gateHooks` in `config.json`. Orphan gate entries from manual edits or stale state are cleaned up automatically.
+- **H4: `detect-signals` "table" precision.** The word "table" alone no longer triggers `has_strict_output` — output-intent context (e.g. "format as a table", "return ... table") is required. Prevents false-positives on prompts like "inspect the routing table and explain packet loss".
+- **H5: Adversarial preserved when mixed with style.** Prompts like "Find security bugs and naming issues" now correctly flag `has_adversarial_defect=true` (previously suppressed by the style-only filter). Policy: adversarial signal wins; pure style-only (no adversarial token) still excludes.
+- **H6: Unquoted field-list detection.** Prompts like "Return exactly fields: status, risk, file, line" now flag `has_strict_output=true` via a new regex matching `fields:|keys:|columns:` followed by ≥3 comma-separated identifiers.
+- **H7: State directories restricted to 0700.** All `~/.claude/codex-on-claude/{,logs,reports,improvements,threads}` directories are now chmod'd to user-only (0700) at install time. Best-effort: errors are swallowed for filesystems that ignore chmod (FAT/exFAT/network mounts).
+
+### Hardened post-L6 review (G1-G7 quick-win fixes within v0.5.0)
+
+After the L1–L6 verification cycle a second sweep applied 7 follow-up improvements to keep the release shipping-clean (all caught by the same verification suite — see `docs/test-execution-results-0.5.0.md`):
+
+- **G1: CLI positional validation.** `--usage-mode max` (space-separated, a common user mistake) now errors with a helpful hint instead of silently dropping the value. Implementation: `main()` checks the positional arg against an explicit `KNOWN_SUBCOMMANDS` allowlist before falling through to install. Use `--usage-mode=max` (with `=`).
+- **G2: Silent-fill info line is now reachable.** Upgrading users now see `usageMode: silent default "synergy" applied for upgrade` when codex-on-claude is auto-detected as a reconfigure (npx upgrade path). Previously this line was unreachable because `main()` always passed `reconfigure: true` for prior-state runs. Added `explicitReconfigure: true` only when the user invoked `coc reconfigure` directly; the §7 prompt now appears only for that explicit case, while npx auto-detected upgrades silently fill `synergy`.
+- **G3: Log entries carry `usageMode`.** Every `usage-*.jsonl` row now includes the active `usageMode` field via `readUsageModeSafe()`, enabling per-call mode tracking and accurate `ruleUsageModeDrift` analysis. Both manual `coc log` and PostToolUse hook paths inject the field.
+- **G4: Doc drift fixed.** Stale `--mode=manual` reference in `docs/usage-mode-config.md:120` replaced with the correct `--usage-mode=synergy|none` example.
+- **G5: `detect-signals` TDD precision.** `edge cases` alone no longer triggers `has_tdd=true`. Only genuine TDD signals (`failing tests?`, `make tests? pass`, `tdd`) qualify. Prevents spurious R3 reasoning=high escalation on general review prompts.
+- **G6: Code cleanup.** Removed the dead-code `stripOursFromGroups` helper in `install/hooks.mjs` (superseded by `stripOursFromGroupsByMarker(...)` with explicit MARKER parameter). Callers `install()` / `remove()` updated to the canonical form.
+- **G7: `ruleUsageModeDrift` accuracy.** The analyzer rule now ignores log entries written before `config.updatedAt`, eliminating false-positives immediately after a mode switch (e.g. user toggles from `synergy` to `none`; yesterday's legitimate Codex calls no longer fire drift).
+
+### Pre-ship security review (post-L6.2 hardening)
+
+`docs/security-review-0.5.0.md` documents an adversarial Codex review of the `usageMode=none` gate. Three High-feasibility bypass attacks were found and **mitigated before release**:
+
+- **Bash CLI bypass** — gate now intercepts `Bash` tool invocations and denies `codex exec` / `npx codex` / `codex-on-claude threads resume` commands (`install/hooks.mjs:decideGate` + `installGate`). Verified via `install/fixtures/v05/unit/decide-gate-extended.test.mjs`.
+- **MCP tool-name variants** — gate matcher widened from two exact strings to the wildcard `mcp__codex__.*`; `decideGate` regex changed from `^mcp__codex__codex` to `^mcp__codex__` (covers future Codex MCP tools). Case-insensitive comparison closes the `MCP__CODEX__CODEX` bypass.
+- **Fail-open state read** — `cmdGate` now fails CLOSED when the payload is malformed AND the tool looks Codex-shaped, or when `config.json` is unreadable AND the tool is Codex-shaped. Verified via `install/fixtures/v05/integration/cmd-gate-fail-closed.test.mjs`.
+
+### Known limitations
+
+- **Tier 2 LLM probe adds latency + cost.** Each invocation is ~$0.01–0.02 and 1–3s. Disable via `--auto-tier2-llm-probe=off` or by choosing `synergy` instead of `auto` mode.
+- **Mode-aware Skill prose is best-effort.** The PreToolUse gate hook is the only hard enforcement layer (mode=none). Other guardrails (Chain-JSON Trap, Subagent-Strict, Turn Burn) live in Skill prose and depend on the LLM following the guidance. Codex peer review identified this gap; runtime enforcement of all guardrails would need a deeper hook integration (deferred).
+- **`max` mode does NOT override hard DO-NOT rules.** Chain+strict prompts get routed to **R4 γ hot-swap** (Codex CLI direct, bypassing the MCP β orchestration). This is by design — the v6/v8 data showed -16~-83pp catastrophe risk for unprotected chain+strict. In `synergy`/`auto` modes the equivalent escape is **R6 Format-Safe Handoff** (Codex prose → Claude format).
+- **Auto-probe budget is not capped.** The probe logs every call but doesn't track a session budget. A future release may add `--auto-probe-budget-usd` or per-day quota.
+- **In-flight Codex calls during toggle.** When the user runs `reconfigure --usage-mode=none` while a Codex call is mid-flight, the in-flight call is not retroactively cancelled. The H2 race-free gate ensures subsequent calls see the new mode, but calls already past PreToolUse will complete. Restart Claude Code for hard guarantees.
+
 ## [0.4.1] — 2026-05-20
 
 ### Added — subscription-aware model/reasoning + automatic fallback (largest user-facing change since 0.3.0)

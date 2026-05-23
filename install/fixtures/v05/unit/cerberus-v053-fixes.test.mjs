@@ -100,6 +100,31 @@ test("F3b: disputed render guards against missing lostTo (no 'lost to undefined'
   assert.ok(!r.consensus_plan.includes("lost to undefined"), "render must never emit 'lost to undefined'");
 });
 
+test("F3c: case-4 polarity-split disputed renders 'opposing polarity', not '*(lost to ?)*' (MEDIUM #2, v0.5.4)", () => {
+  // 3-way Decision polarity split — replicates HU-31 finding:
+  //   h1 (+) "Use cache" / h2 (-) "Never use cache" / h3 (+) "Consider cache..."
+  // groupByJaccard splits into 3 case-4 groups (polarity guard + Jaccard < 0.6 between h1/h3).
+  // classifyCase4 pushes h1 and h3 to dissent.disputed WITHOUT lostTo (the bug path).
+  // Before v0.5.4: renderer emitted "*(lost to ?)*". After: "*(disputed — opposing polarity)*".
+  const plans = [
+    { head: "h1", plan: "## Decision\nUse cache for the API responses." },
+    { head: "h2", plan: "## Decision\nNever use cache for the API responses." },
+    { head: "h3", plan: "## Decision\nConsider cache for the API responses if benchmarks justify it." },
+  ];
+  const r = consensus(plans);
+  // Sanity — confirm we exercise the lostTo-undefined path (otherwise the test would silently
+  // assert against a path that never fires after future refactors).
+  const noLostTo = r.dissent.disputed.filter((d) => !d.lostTo);
+  assert.ok(noLostTo.length >= 1,
+    `expected ≥1 case-4 disputed entry without lostTo; got ${JSON.stringify(r.dissent.disputed)}`);
+  // The fix: render must never contain the literal '*(lost to ?)*' that users were seeing.
+  assert.ok(!/\*\(lost to \?\)\*/.test(r.consensus_plan),
+    "render must not emit '*(lost to ?)*' — v0.5.4 MEDIUM #2 fix");
+  // The replacement suffix must appear.
+  assert.match(r.consensus_plan, /\*\(disputed — opposing polarity\)\*/,
+    "render must emit '*(disputed — opposing polarity)*' for polarity-split case-4");
+});
+
 // ── Fix #4: Porter Stemmer isV(s, -1) base case ─────────────────────────
 
 test("F4a: leading 'y' treated as CONSONANT (Porter spec)", () => {

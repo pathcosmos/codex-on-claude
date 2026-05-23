@@ -16,8 +16,8 @@ const MANIFEST_PATH = path.resolve(__dirname, "../../../manifest.json");
 
 const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
 
-test("manifest.version is 0.5.3 (v0.5.3 Cerberus n=2 self-review fixes)", () => {
-  assert.equal(manifest.version, "0.5.3");
+test("manifest.version is 0.5.4 (v0.5.4 MEDIUM #2 render fix)", () => {
+  assert.equal(manifest.version, "0.5.4");
 });
 
 test("questions.usageMode has 4 choices with the exact expected keys", () => {

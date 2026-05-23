@@ -2,6 +2,32 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.4] — 2026-05-23
+
+### Fixed — MEDIUM #2 (재검증 후 surfaced)
+
+v0.5.3 + Opus 4.7 재검증 (`docs/test-execution-results-cerberus-v0.5.3-opus47.md`) 에서 발견된 case-4 disputed 렌더 버그 1줄 패치.
+
+- **MEDIUM #2 — `*(lost to ?)*` 렌더링 정정** (`install/cerberus-consensus.mjs:608`). `classifyCase4()` 가 case-4 step/decision 을 `dissent.disputed` 로 push 할 때 `lostTo` 미설정 → 렌더러가 fallback `"?"` 출력. 4개 run (HU-31 2건, MD2-step 1건, Step 6 real spawn 2건, Step 3 1건) 에서 6건 관찰. v0.5.4 부터 `*(disputed — opposing polarity)*` 출력 — polarity guard 가 분리한 case 임을 명시.
+
+### Changed
+
+- **`manifest.json:version`** + **`package.json:version`** → 0.5.4.
+- **`cerberus-server.mjs:runCerberusServer`** MCP advertised version → 0.5.4.
+- **신규 단위 테스트 1건** (`cerberus-v053-fixes.test.mjs:F3c`): 3-way Decision polarity-split fixture 로 `/\*\(lost to \?\)\*/` literal 출력 부재 + `*(disputed — opposing polarity)*` 출현 assert.
+
+### Test verification
+
+- **cerberus 단위 76 / 76 PASS** (기존 75 + F3c 1건). 회귀 0건.
+- MEDIUM #1 (decision multiplier binary cliff) + MEDIUM #3 (contrast conjunction polarity) 는 본 patch 에서 미수정 — `docs/cerberus-v0.5.4-plan.md` Phase 2 로 분리 (v0.5.5 후속).
+
+### Backlog (v0.5.5)
+
+- MEDIUM #1: case-2 decision 도 partial multiplier (1.2x). decision split 시 score cliff 완화. ~2시간 시뮬레이션 + 패치.
+- MEDIUM #3: contrast conjunction (`but/however/although/despite/except`) second-clause negation 정규식 + 양립 예외 (`but also`). ~30분.
+- LOW: `choices.cerberusConfig: {}` install/reconfigure 시 seed. ~5분.
+- HU-33 plan-level test (h3 plan 권고). ~15분.
+
 ## [0.5.3] — 2026-05-23
 
 ### Added — Cerberus n=2 self-review에서 surfacing된 4 critical fix

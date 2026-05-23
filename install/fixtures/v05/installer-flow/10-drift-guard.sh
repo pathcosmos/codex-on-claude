@@ -26,7 +26,7 @@ trap cleanup_all EXIT
 
 cp "$MANIFEST" "$BACKUP"
 
-echo "▶ L3.10: drift guard (manifest=0.4.9, package=0.5.3)"
+echo "▶ L3.10: drift guard (manifest=0.4.9, package=0.5.4)"
 
 # Patch the manifest version to 0.4.9. Use jq for a clean rewrite.
 jq '.version = "0.4.9"' "$MANIFEST" > "$MANIFEST.tmp" && mv "$MANIFEST.tmp" "$MANIFEST"
@@ -40,12 +40,12 @@ out="$(coc \
 
 # Drift warning must mention both versions.
 assert_contains "$out" "manifest.json version (0.4.9)" "drift warning cites manifest version"
-assert_contains "$out" "package.json version (0.5.3)" "drift warning cites package version"
+assert_contains "$out" "package.json version (0.5.4)" "drift warning cites package version"
 assert_contains "$out" "Using package.json" "drift warning states resolution path"
 
-# State file must record the package.json version (0.5.3), not 0.4.9.
+# State file must record the package.json version (0.5.4), not 0.4.9.
 config="$HOME/.claude/codex-on-claude/config.json"
 version="$(json_get "$config" '.version')"
-assert_eq "0.5.3" "$version" "config.json.version uses package.json (0.5.3), not stale manifest"
+assert_eq "0.5.4" "$version" "config.json.version uses package.json (0.5.4), not stale manifest"
 
 echo "✓ L3.10 PASS"

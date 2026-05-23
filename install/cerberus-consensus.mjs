@@ -605,8 +605,12 @@ function renderConsensusPlan(merged, dissent, score, label) {
     if (dissent.disputed.length) {
       out.push("### Disputed (lost in tournament)");
       for (const d of dissent.disputed) {
-        const lostTo = d.lostTo || "?"; // defensive — case-4 disputed has no winner
-        out.push(`- \`[${d.head}]\` ${d.body}  *(lost to ${lostTo})*`);
+        // v0.5.4: case-4 step/decision pushed by classifyCase4() has no tournament winner →
+        // lostTo undefined. Distinguish from tournament loss with a polarity-explicit suffix.
+        const suffix = d.lostTo
+          ? `*(lost to ${d.lostTo})*`
+          : `*(disputed — opposing polarity)*`;
+        out.push(`- \`[${d.head}]\` ${d.body}  ${suffix}`);
       }
     }
     if (dissent.minority.length) {

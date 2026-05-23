@@ -14,7 +14,9 @@ v0.5.3 + Opus 4.7 재검증 (`docs/test-execution-results-cerberus-v0.5.3-opus47
 
 - **`manifest.json:version`** + **`package.json:version`** → 0.5.4.
 - **`cerberus-server.mjs:runCerberusServer`** MCP advertised version → 0.5.4.
+- **2 기존 fixture 0.5.4 갱신**: `manifest-schema.test.mjs`, `installer-flow/10-drift-guard.sh` (v0.5.3 → 0.5.4 literal). `atomic-write.test.mjs`는 동적 참조라 변경 불요.
 - **신규 단위 테스트 1건** (`cerberus-v053-fixes.test.mjs:F3c`): 3-way Decision polarity-split fixture 로 `/\*\(lost to \?\)\*/` literal 출력 부재 + `*(disputed — opposing polarity)*` 출현 assert.
+- **README.md / README.ko.md Cerberus 섹션 재작성** — 버전 라벨 v0.5.1 → v0.5.4, 알고리즘 동작 요약 (Porter Stemmer + polarity + 4 case 분류), v0.5.1→v0.5.4 진화 표, 76 test 커버리지, v0.5.5 backlog 링크. 두 README 모두 동일 정보.
 
 ### Test verification
 

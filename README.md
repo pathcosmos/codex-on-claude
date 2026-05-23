@@ -275,7 +275,7 @@ Full details: [`docs/release-notes-0.5.0.md`](docs/release-notes-0.5.0.md) + [`d
 
 ---
 
-## Cerberus mode (v0.5.1, opt-in)
+## Cerberus mode (v0.5.4, opt-in)
 
 When the planning step matters more than execution speed, enable Cerberus Head mode:
 
@@ -285,9 +285,22 @@ codex-on-claude reconfigure --cerberus=on --yes
 /cerberus head "<task description>"
 ```
 
-What happens: codex-on-claude spawns three independent planners in parallel — `cerberus-h1-claude-only` (no Codex), `cerberus-h2-codex-only` (delegates fully to Codex CLI), `cerberus-h3-synergy` (Claude + Codex consultation) — then merges their plans via a deterministic algorithm into a single consensus plan. Cost: ~2–3× a single planner (typically 20–50k tokens total). Plan-only — implementation/verification phases are not included in this release.
+**How it works.** `/cerberus head` spawns three independent planners in parallel — `cerberus-h1-claude-only` (no Codex), `cerberus-h2-codex-only` (delegates fully to Codex CLI), `cerberus-h3-synergy` (Claude + Codex consultation) — then merges their plans via a deterministic algorithm. Topics are extracted from each plan's markdown sections (Decision / Reasons / Risks / Steps), grouped by Jaccard similarity over Porter-stemmed tokens, and classified into one of four cases: case 1 (3-head merge), case 2 (3-head tournament with h3 tie-break + head-weight ladder), case 3 (2-head agreement + 1 missing), case 4 (single-head, validated / disputed / minority / missing buckets). Output is a single consensus plan plus an `agreement_score` (0–1) and `label` (low / moderate / high). **Cost**: ~2–3× a single planner (typically 20–50k tokens total). **Plan-only** — execute and verify phases ship later.
 
-Disable any time with `codex-on-claude reconfigure --cerberus=off --yes`. Spec: [`docs/cerberus-mode-spec.md`](docs/cerberus-mode-spec.md). PoC walkthrough: [`docs/cerberus-poc-2026-05-22.md`](docs/cerberus-poc-2026-05-22.md).
+**Hardening since v0.5.1.**
+
+| Version | Change | Why it matters |
+|---------|--------|----------------|
+| v0.5.1 | Initial 3-head + deterministic merge | PoC |
+| v0.5.2 | Porter Stemmer + nonce challenge + case-4 conservative partial credit | Paraphrase absorption (`deterministic`/`deterministically` → same stem) and orchestration-layer guard against fake plans (each head plan must end with `cerberus-nonce: <value>` matching init's nonce; consensus rejects mismatches) |
+| v0.5.3 | Polarity tracking (`detectPolarity` blocks `use cache` (+) merging with `do not use cache` (-)) + empty-token guard (no false-merge on Korean / single-char bullets) + minority dissent bucket + Porter `isV(s, -1)` base case fix | Closes 4 critical bugs surfaced by the n=2 self-review |
+| v0.5.4 | Disputed render fix — `*(disputed — opposing polarity)*` for case-4 polarity-split entries (no more `*(lost to ?)*`) | MEDIUM #2 surfaced in Opus 4.7 re-test: 6 user-facing `?` outputs across 4 runs |
+
+**Test coverage.** 76 cerberus-specific unit + integration tests (consensus 14 + install 13 + stemming 14 + stemming-adversarial 6 + nonce 10 + score-formula 5 + v053-fixes 11 + e2e 4 — includes F3c regression guard for the v0.5.4 render fix).
+
+**Known backlog (v0.5.5).** MEDIUM #1 (case-2 decision should trigger partial multiplier 1.2× — currently the 1.5× ↔ 1.0× binary cliff makes 3-way decision splits collapse to `low`), MEDIUM #3 (contrast conjunctions `but / however / although / despite / except` not yet detected by `detectPolarity` → caveat content can be silently dropped from consensus plans), LOW (`choices.cerberusConfig: {}` seed on install/reconfigure for per-machine tuning visibility), HU-33 plan-level test. See [`docs/cerberus-v0.5.4-plan.md`](docs/cerberus-v0.5.4-plan.md) Phase 2.
+
+Disable any time with `codex-on-claude reconfigure --cerberus=off --yes`. Spec: [`docs/cerberus-mode-spec.md`](docs/cerberus-mode-spec.md) (Draft 5). PoC walkthrough: [`docs/cerberus-poc-2026-05-22.md`](docs/cerberus-poc-2026-05-22.md). Re-test results: [`docs/test-execution-results-cerberus-v0.5.3-opus47.md`](docs/test-execution-results-cerberus-v0.5.3-opus47.md).
 
 ---
 

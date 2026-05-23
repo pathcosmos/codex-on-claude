@@ -60,11 +60,21 @@ npx codex-on-claude                    # 인터랙티브 설치
 
 자세한 동작은 [README.md](README.md) 의 *"The install questions"* 섹션 (§1–§8) 을 보세요. v0.4.1 부터 subscription + model/reasoning 이 추가되어 4 → 6 으로, v0.5.0 부터 `usageMode` 가 추가되어 6 → 7 로, v0.5.1 부터 `cerberus` 가 추가되어 7 → 8 로 늘었습니다.
 
-### 8. cerberus (v0.5.1, 단일)
+### 8. cerberus (v0.5.4, 단일)
 - `off` — 기본값 (업그레이드 시 사일런트 적용). Cerberus 산출물 미설치.
 - `on` — `codex-cerberus` Skill + 3개 head agent (`cerberus-h{1,2,3}`) + `cerberus` MCP 서버 자동 등록. `/cerberus head "<task>"` 슬래시로 3-head 병렬 plan 합의 호출.
 
 켜고/끄기: `codex-on-claude reconfigure --cerberus=on --yes` 또는 `--cerberus=off --yes`. 비용은 단일 planner 대비 2~3배 (보통 20~50k 토큰). Plan 단계만 처리하며 execute/verify는 추후.
+
+**동작 요약**: 3개 head 가 markdown plan 산출 → Porter Stemmer 적용 후 Jaccard 유사도로 topic 그룹화 → polarity guard (긍정/부정 토큰 mismatch 차단) → 4 case 분류 (3-head merge / tournament / 2-head agreement / single-head dissent) → 단일 consensus plan + `agreement_score` (0~1) + `label` (low/moderate/high). 각 head plan 은 init 이 발급한 `cerberus-nonce: <6-hex>` 로 끝나야 하며, consensus 가 mismatch 시 reject.
+
+**버전별 진화**:
+- v0.5.1 — 초기 3-head + 결정적 merge.
+- v0.5.2 — Porter Stemmer (의역 흡수) + nonce challenge (orchestration-layer 위조 차단) + case-4 partial credit (`agreement_score` 13× 개선).
+- v0.5.3 — Polarity tracking + empty-token guard (한국어 단일글자 false-merge 차단) + minority dissent 렌더 + Porter `isV(-1)` 명시.
+- v0.5.4 — case-4 polarity-split disputed 출력 `*(lost to ?)*` → `*(disputed — opposing polarity)*` 정정.
+
+**자동화 76 테스트** (consensus 14 + install 13 + stemming 14 + stemming-adversarial 6 + nonce 10 + score-formula 5 + v053-fixes 11 + e2e 4). v0.5.5 backlog 는 [`docs/cerberus-v0.5.4-plan.md`](docs/cerberus-v0.5.4-plan.md) Phase 2 — MEDIUM #1 (decision multiplier soft-curve), MEDIUM #3 (contrast conjunction polarity), LOW (`cerberusConfig` seed), HU-33 plan-level test.
 
 ### 1. patterns (다중)
 - One-shot read-only review → `codex-review`

@@ -6,7 +6,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { stem, normalizeTokens, jaccard } from "../../../cerberus-consensus.mjs";
+import { stem, normalizeTokens, jaccard, consensus } from "../../../cerberus-consensus.mjs";
 
 // ── Known over-stemming collisions (semantically distinct → same stem) ────
 // Each entry = ["word_a", "word_b", "shared_stem"]
@@ -113,4 +113,58 @@ test(`AS6: known collision count is ${TOTAL_KNOWN} (regression guard for spec §
   // If a future Porter implementation change reduces collisions, the spec table must be updated.
   // Treat this as a deliberate snapshot.
   assert.equal(TOTAL_KNOWN, 21, "spec §3.2 v0.5.2 lists exactly 21 documented collisions");
+});
+
+// ── Plan-level lock-in (HU-33, v0.5.5) ─────────────────────────────────────
+
+test("A22: plan-level — 9 stem-collision reasons stay in distinct groups (HU-33)", () => {
+  // Pre-v0.5.3 risk: 21 known stem collisions could case-1/3 false-merge real plans, inflating
+  // agreement_score artificially. Algorithm-level fix landed in v0.5.3 (polarity + body Jaccard
+  // gates). This is a plan-level lock-in: feed 3 plans whose Reasons sections deliberately
+  // contain the worst collision pairs (general/generic, organize/organic, business/busy) and
+  // assert that none of them merge under consensus(). Fixture mirrors HU-33 scenario doc.
+  const plans = [
+    {
+      head: "h1",
+      plan: [
+        "## Decision",
+        "Proceed.",
+        "## Reasons",
+        "- A general approach reduces ramp-up time.",
+        "- A business case justifies the upfront cost.",
+        "- Organize tasks by domain owner.",
+      ].join("\n"),
+    },
+    {
+      head: "h2",
+      plan: [
+        "## Decision",
+        "Proceed.",
+        "## Reasons",
+        "- A generic approach loses domain detail.",
+        "- A busy schedule prevents large refactors.",
+        "- Organic ownership emerges over time.",
+      ].join("\n"),
+    },
+    {
+      head: "h3",
+      plan: [
+        "## Decision",
+        "Proceed.",
+        "## Reasons",
+        "- A general framework supports both approaches.",
+        "- A generic checklist covers minimum criteria.",
+        "- Organize for large teams, organic for small.",
+      ].join("\n"),
+    },
+  ];
+  const r = consensus(plans);
+  // 9 reasons (3 per head). Each head's reason should land in its own group → 9 case-4 reason
+  // groups (all conservative-include). Decision is a single case-1 group ("Proceed." × 3).
+  // Total groups: 1 decision + 9 reasons = 10. If false-merge regresses, case4 < 9 OR case1 > 1.
+  assert.equal(r.raw.groupCounts.case4, 9,
+    `expected 9 case-4 reason groups (no false-merge across stem collisions); got ${JSON.stringify(r.raw.groupCounts)}`);
+  assert.equal(r.raw.groupCounts.case4Conservative, 9,
+    "all 9 case-4 reasons should be conservative-include (kind=reason)");
+  assert.equal(r.raw.groupCounts.case1, 1, "only the Decision should be case 1");
 });

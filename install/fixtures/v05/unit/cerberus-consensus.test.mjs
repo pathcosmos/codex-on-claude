@@ -82,10 +82,13 @@ test("T2: 3 heads agree on Decision → decisionMultiplier=1.5 applied", () => {
   assert.ok(r.agreement_score >= r.raw.rawScore, "boosted score >= rawScore");
 });
 
-test("T2b: heads disagree on Decision → decisionMultiplier=1.0 (no boost)", () => {
+test("T2b: 3 heads voiced on Decision but disagreed → decisionMultiplier=1.2 (v0.5.5 partial)", () => {
+  // Pre-v0.5.5: case-2 decision → multiplier 1.0 (binary cliff from 1.5).
+  // v0.5.5: soft-curve — 3-way decision tournament reflects "shared subject, divergent verdict"
+  // (partial agreement, not zero). MEDIUM #1 from Opus 4.7 re-test.
   const r = consensus(threePlans(PLAN_ALL_AGREE, PLAN_PARTIAL, PLAN_DISAGREE_DECISION));
-  assert.equal(r.decisionUnanimous, false);
-  assert.equal(r.raw.decisionMultiplier, 1.0);
+  assert.equal(r.decisionUnanimous, false, "not case 1 unanimous");
+  assert.equal(r.raw.decisionMultiplier, 1.2, "case-2 decision now triggers partial multiplier");
 });
 
 // ── 3. agreement_score ranges + label ─────────────────────────────────────

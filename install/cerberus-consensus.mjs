@@ -9,6 +9,13 @@ export const DEFAULTS = Object.freeze({
   bodyMergeThreshold: 0.8,
   topicKeyMaxChars: 100,
   decisionMultiplier: 1.5,
+  // v0.5.5: case-2 decision (3 heads voiced on the same decision topic but disagreed on the
+  // verdict — tournament fires) gets a partial multiplier instead of the binary cliff to 1.0.
+  // Pre-v0.5.5 the only multiplier was 1.5 (case-1 unanimous) ↔ 1.0 (anything else); a single
+  // word change in one head's decision could halve the agreement_score. With 1.2 the cliff
+  // softens — case-2 decisions reflect "shared subject, divergent verdict" which is partial
+  // agreement, not zero. See docs/cerberus-v0.5.4-plan.md MEDIUM #1.
+  decisionPartialMultiplier: 1.2,
   // Specificity components (added to body-length score in tournament).
   specFileLine: 0.5,
   specNumber: 0.3,
@@ -38,8 +45,26 @@ const STOPWORDS = new Set([
 // opposite-polarity topics — closes the n=2 self-review #1 finding.
 const NEGATION_RE = /\b(not|never|avoid|skip|cannot|won't|wouldn't|shouldn't|don't|doesn't|didn't|no\s+need)\b/i;
 
+// v0.5.5: contrast conjunction polarity (MEDIUM #3 from Opus 4.7 re-test). Pre-v0.5.5 the
+// renderer silently merged "Cache reduces calls but introduces staleness" with "Cache reduces
+// calls" under case 2 tournament — h3's neutral phrasing won and the caveat content was dropped
+// from the consensus_plan entirely. Quantified: 4/5 conjunctions in run-md3 (060909Z-e8c149)
+// produced exactly this caveat-loss pattern. Fix: tag the negation polarity when a contrast
+// conjunction is followed by a substantive clause.
+//
+// False-positive guard: reciprocal expressions like "X but also Y", "X but additionally Y",
+// "X but even Y", "X but too Y" stay polarity '+' (compatible expression, not contradiction).
+// Negative lookahead `(?!(also|additionally|even|too)\b)` skips them.
+//
+// The trailing `\w+` requires a substantive clause — sentence-final "but," or trailing fragment
+// is NOT a contradiction signal (very rare in plan markdown, but cheap to guard against).
+const CONTRAST_NEGATION_RE = /\b(but|however|although|despite|except)\s+(?!(?:also|additionally|even|too)\b)\w+/i;
+
 export function detectPolarity(text) {
-  return typeof text === "string" && NEGATION_RE.test(text) ? "-" : "+";
+  if (typeof text !== "string") return "+";
+  if (NEGATION_RE.test(text)) return "-";
+  if (CONTRAST_NEGATION_RE.test(text)) return "-";
+  return "+";
 }
 
 // Bias toward h3 tie-break: define lex priority h3 > h1 > h2.
@@ -429,6 +454,7 @@ export function consensus(plans, options = {}) {
 
   let case1 = 0, case2 = 0, case3 = 0, case4 = 0;
   let decisionCase1 = false;
+  let decisionCase2 = false; // v0.5.5: tracks "3 heads voiced on decision topic but disagreed"
 
   for (const g of groups) {
     const heads = new Set(g.items.map((it) => it.head));
@@ -447,6 +473,7 @@ export function consensus(plans, options = {}) {
           chosenPerTopic.push({ topic: bodyStrs[0], winner: "merged", reason: "3 heads agree on decision (exact body match)" });
         } else {
           case2++;
+          decisionCase2 = true; // v0.5.5: triggers partial multiplier
           // Decision disagreement → tournament with weights, h3 tie-break.
           const scored = g.items.map((it) => ({ it, score: tournamentScore(it, opt.headWeights) }));
           scored.sort((a, b) => (b.score - a.score) || (HEAD_TIEBREAK_RANK[a.it.head] - HEAD_TIEBREAK_RANK[b.it.head]));
@@ -473,6 +500,7 @@ export function consensus(plans, options = {}) {
         chosenPerTopic.push({ topic: g.items[0].topicKey, winner: "merged", reason: `3 heads agree (min Jaccard=${minSim.toFixed(2)})` });
       } else {
         case2++;
+        if (g.kindHint === "decision") decisionCase2 = true; // v0.5.5: paraphrased-decision tournament
         // Tournament: highest weighted score wins; tie → h3>h1>h2.
         const scored = g.items.map((it) => ({ it, score: tournamentScore(it, opt.headWeights) }));
         scored.sort((a, b) => (b.score - a.score) || (HEAD_TIEBREAK_RANK[a.it.head] - HEAD_TIEBREAK_RANK[b.it.head]));
@@ -520,7 +548,12 @@ export function consensus(plans, options = {}) {
   const rawScore = totalGroups
     ? (case1 * 1.0 + case2 * 0.5 + case3 * 0.3 + case4Conservative * 0.3 + case4Other * 0.0) / totalGroups
     : 0;
-  const decisionMultiplier = decisionCase1 ? opt.decisionMultiplier : 1.0;
+  // v0.5.5: soft-curve — case 1 unanimous → 1.5x, case 2 tournament → 1.2x, else 1.0x.
+  // decisionCase1 takes precedence (a plan with both unanimous Decision A and a paraphrase-
+  // tournament Decision B in the same call still gets full credit for the unanimous one).
+  const decisionMultiplier = decisionCase1
+    ? opt.decisionMultiplier
+    : (decisionCase2 ? opt.decisionPartialMultiplier : 1.0);
   const agreement_score = Math.min(1.0, rawScore * decisionMultiplier);
 
   let label;

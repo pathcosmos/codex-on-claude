@@ -150,6 +150,59 @@ test("F4b: stem() is deterministic on leading-y words across runs", () => {
   }
 });
 
+// ── v0.5.5 Fix #5: Contrast conjunction polarity (MEDIUM #3) ──────────────
+
+test("F5a: 'but' second-clause flags polarity '-' (caveat)", () => {
+  // Before v0.5.5: polarity '+' → false-merge with neutral phrasing → caveat lost.
+  assert.equal(detectPolarity("Cache reduces calls but introduces staleness."), "-");
+});
+
+test("F5b: 'however' second-clause flags polarity '-'", () => {
+  assert.equal(detectPolarity("Latency drops however invalidation is tricky."), "-");
+});
+
+test("F5c: 'although' second-clause flags polarity '-'", () => {
+  assert.equal(detectPolarity("Memory is small although large queries spike usage."), "-");
+});
+
+test("F5d: 'despite' second-clause flags polarity '-'", () => {
+  assert.equal(detectPolarity("Complexity is acceptable despite added monitoring."), "-");
+});
+
+test("F5e: 'except' second-clause flags polarity '-'", () => {
+  assert.equal(detectPolarity("Deployment risk is low except for cold-start scenarios."), "-");
+});
+
+test("F5f: 'but also' / 'but additionally' / 'but even' stay polarity '+' (compatible expression)", () => {
+  // False-positive guard — reciprocal expressions are NOT contradictions.
+  assert.equal(detectPolarity("Cache reduces calls but also reduces freshness control."), "+");
+  assert.equal(detectPolarity("X works but additionally improves Y."), "+");
+  assert.equal(detectPolarity("Plan A is solid but even more attractive after benchmark."), "+");
+  assert.equal(detectPolarity("Latency drops but too much memory is consumed."), "+");
+});
+
+test("F5g: contrast conjunctions inside word boundaries don't false-trigger", () => {
+  // 'butter', 'however' standalone needs the word boundary; 'although' with no clause shouldn't
+  // trigger if there's no substantive trailing word (rare in markdown but guard anyway).
+  assert.equal(detectPolarity("Add butter to the recipe."), "+", "'butter' must not match 'but'");
+  assert.equal(detectPolarity("This is howeverest level."), "+", "no real-world word but guard regression");
+});
+
+test("F5h: end-to-end — caveat plan no longer false-merges (replicates run-md3 e8c149)", () => {
+  // Pre-v0.5.5: all 3 reasons false-merged into 1 case-2 tournament group; h3 won; caveat
+  // content was completely absent from consensus_plan. Post-v0.5.5: h2 polarity '-' splits into
+  // its own group; caveat survives in consensus_plan (either as dissent or conservative-include).
+  const plans = [
+    { head: "h1", plan: "## Decision\nA\n\n## Reasons\n- Cache reduces redundant network calls." },
+    { head: "h2", plan: "## Decision\nA\n\n## Reasons\n- Cache reduces redundant network calls but introduces staleness." },
+    { head: "h3", plan: "## Decision\nA\n\n## Reasons\n- Cache reduces redundant network calls effectively." },
+  ];
+  const r = consensus(plans);
+  // h2 caveat content must survive into the rendered consensus_plan somewhere.
+  assert.ok(r.consensus_plan.includes("introduces staleness"),
+    `caveat 'introduces staleness' must survive into consensus_plan; got:\n${r.consensus_plan}`);
+});
+
 // ── Cross-fix integration ──────────────────────────────────────────────
 
 test("F-INT: a plan with negation + Korean + leading-y handles all 4 fixes simultaneously", () => {

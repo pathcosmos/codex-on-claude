@@ -1,6 +1,6 @@
 {
   "name": "codex-on-claude",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Bridge that lets Claude Code call OpenAI Codex CLI as an MCP sub-agent. Installable Skills + optional isolated review Agent, a continuous-improvement loop with optional PostToolUse hook auto-logging, and a persistent thread catalog. Local-only telemetry, arrow-key install UX.",
   "keywords": [
     "claude-code",
@@ -40,6 +40,7 @@
     "install/auto-probe.mjs",
     "install/cerberus-consensus.mjs",
     "install/cerberus-server.mjs",
+    "install/cerberus-config.mjs",
     "install/components/",
     "docs/guidance-quick-ref.md",
     "docs/guidance-comparison.md",

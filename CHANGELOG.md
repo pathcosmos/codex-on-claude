@@ -2,6 +2,44 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.5] — 2026-05-23
+
+### Added — `docs/cerberus-v0.5.4-plan.md` Phase 2 bundle (4 items)
+
+v0.5.4 patch 후 backlog 로 분리되었던 MEDIUM #1 + MEDIUM #3 + LOW + HU-33 plan-level test 를 하나의 minor release 로 묶음.
+
+- **MEDIUM #1 — decision multiplier soft-curve** (`install/cerberus-consensus.mjs:539`). 새 `DEFAULTS.decisionPartialMultiplier = 1.2` 추가 + `decisionCase2` flag tracking + `decisionCase1 ? 1.5 : (decisionCase2 ? 1.2 : 1.0)` branch. **결과**: case-2 decision (3 head 가 같은 decision topic 에 voiced 했으나 verdict 갈림) 이 더 이상 binary cliff 로 multiplier 1.0 까지 떨어지지 않음. PoC 시점 0.43 / Step 6 real spawn 0.17 처럼 paraphrase × 3-way split 곱셈으로 붕괴하던 score band 가 partial agreement 신호를 반영. `consensus()` API 의 `decisionPartialMultiplier` option override 도 가능 (per-machine 튜닝).
+- **MEDIUM #3 — contrast conjunction polarity** (`install/cerberus-consensus.mjs:39`). 새 `CONTRAST_NEGATION_RE = /\b(but|however|although|despite|except)\s+(?!(?:also|additionally|even|too)\b)\w+/i` 도입, `detectPolarity()` 가 NEGATION_RE 미매칭 시 추가 검사. **양립 표현 false-positive 가드**: `"X but also Y"`, `"X but additionally Y"`, `"X but even Y"`, `"X but too Y"` 는 polarity '+' 유지. **결과**: pre-v0.5.5 에서 run-md3 (e8c149) 가 5/5 conjunction 모두 polarity miss → 4/5 caveat 가 consensus_plan 에서 완전 누락되던 패턴 차단. h2 의 caveat content 가 dissent 또는 conservative-include 경로로 살아남음.
+- **LOW — `choices.cerberusConfig: {}` seed + server reader fix** (`install/cerberus-config.mjs` 신규 + `install/install.mjs:1780` + `install/cerberus-server.mjs:56`). pre-v0.5.5 의 `cerberus-server.mjs:loadConfig()` 가 `cfg?.choices?.cerberus` (enum "on"/"off") 를 객체로 패턴 매칭하여 fallback 객체 literal 이 unreachable 했던 **dead path** 함께 fix. 신규 `seedCerberusConfig()` 가 install/reconfigure 시 `cerberus=on` 이면 `choices.cerberusConfig` 를 빈 객체 (`{}`) 로 seed (기존 값 nullish coalescing 보존). 신규 `consensusOptsFromConfig()` 가 cerberusConfig 의 numeric/object 필드만 추출하여 `runConsensus()` options 로 전달 (undefined 가 DEFAULTS 를 override 하지 않도록 정의된 필드만 emit). schema: `{ headWeights, jaccardGroupThreshold, bodyMergeThreshold, decisionMultiplier, decisionPartialMultiplier, costCapTokens }`. 사용자가 `~/.claude/codex-on-claude/config.json` 에서 직접 편집.
+- **HU-33 plan-level lock-in** (`cerberus-stemming-adversarial.test.mjs:A22`). Porter Stemmer 의 21쌍 stem collision (general/generic, organize/organic, business/busy) 이 실 plan 환경에서 case-1/3 false-merge 를 유발하지 않음을 plan-level 에서 lock. 알고리즘 fix 는 v0.5.3 polarity + body Jaccard gate; 본 test 는 회귀 가드.
+
+### Changed
+
+- **`manifest.json:version`** + **`package.json:version`** → 0.5.5.
+- **`cerberus-server.mjs:runCerberusServer`** MCP advertised version → 0.5.5.
+- **`package.json:files`** allowlist 에 `install/cerberus-config.mjs` 추가.
+- **2 기존 fixture 0.5.5 갱신**: `manifest-schema.test.mjs`, `installer-flow/10-drift-guard.sh` (v0.5.4 → 0.5.5 literal). `atomic-write.test.mjs`는 동적 참조라 변경 불요.
+- **신규 단위 테스트 26건**:
+  - `cerberus-config.test.mjs` (12): I7a~d seedCerberusConfig + I8a~h consensusOptsFromConfig / costCapFromConfig.
+  - `cerberus-v053-fixes.test.mjs` F5a~h (8): contrast conjunction polarity + false-positive guards + e2e caveat 생존 회귀 가드.
+  - `cerberus-score-formula.test.mjs` SF6~SF10 (5): case-1/case-2/case-4 decision multiplier matrix + caller option override.
+  - `cerberus-stemming-adversarial.test.mjs` A22 (1): plan-level HU-33 lock.
+- **1 기존 테스트 expectation 갱신**: `cerberus-consensus.test.mjs:T2b` — case-2 decision multiplier 기대치 1.0 → 1.2 (의도된 behavior change, MEDIUM #1).
+- **README.md / README.ko.md Cerberus 섹션 evolution table v0.5.5 row 추가**.
+
+### Test verification
+
+- **cerberus 단위 102 / 102 PASS** (v0.5.4 76 + I7/I8 12 + A22 1 + F5 8 + SF6~10 5). 회귀 0건.
+- MEDIUM #1 시뮬레이션: 8개 보유 run 중 case-2 decision 발화한 run 부재 (모두 byte-identical decision 또는 완전 분리) → 합성 fixture (SF7) 로 회귀 검증. 실 plan 영향 측정은 새 hands-on Step 6 재실행 시 가시화 예정.
+- 사용자 액션: 새 Claude Code 세션 재시작 후 `/cerberus head "<task>"` 호출 시 (a) `agreement_score` 가 paraphrase-heavy case-2 decision 케이스에서 +0.04~+0.10 정도 상승, (b) caveat 표현이 더 자주 consensus_plan 에 남음, (c) `~/.claude/codex-on-claude/config.json` 의 `choices.cerberusConfig` 가 빈 객체로 seed 되어 있음 — 셋 모두 확인 가능.
+
+### Backlog (v0.5.6+)
+
+- Cerberus Full 모드 (FU-01~10, FC-02~05 14건) 여전히 PENDING-IMPL. v0.5.6+ minor release 후보.
+- Embedding-based similarity (Porter Stemmer 한계 보완) — opt-in LLM-judge 경로. v0.5.6+.
+- `bodyLenScore` 곡선 평탄 (h1 단독 finding, v0.5.3 backlog) — 100~2000자 구간 가중치 재설계.
+- multi-language stemmer (한국어/일본어). 현재는 empty-token guard 로 false-merge 만 차단.
+
 ## [0.5.4] — 2026-05-23
 
 ### Fixed — MEDIUM #2 (재검증 후 surfaced)

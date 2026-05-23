@@ -275,7 +275,7 @@ Full details: [`docs/release-notes-0.5.0.md`](docs/release-notes-0.5.0.md) + [`d
 
 ---
 
-## Cerberus mode (v0.5.4, opt-in)
+## Cerberus mode (v0.5.5, opt-in)
 
 When the planning step matters more than execution speed, enable Cerberus Head mode:
 
@@ -295,10 +295,13 @@ codex-on-claude reconfigure --cerberus=on --yes
 | v0.5.2 | Porter Stemmer + nonce challenge + case-4 conservative partial credit | Paraphrase absorption (`deterministic`/`deterministically` → same stem) and orchestration-layer guard against fake plans (each head plan must end with `cerberus-nonce: <value>` matching init's nonce; consensus rejects mismatches) |
 | v0.5.3 | Polarity tracking (`detectPolarity` blocks `use cache` (+) merging with `do not use cache` (-)) + empty-token guard (no false-merge on Korean / single-char bullets) + minority dissent bucket + Porter `isV(s, -1)` base case fix | Closes 4 critical bugs surfaced by the n=2 self-review |
 | v0.5.4 | Disputed render fix — `*(disputed — opposing polarity)*` for case-4 polarity-split entries (no more `*(lost to ?)*`) | MEDIUM #2 surfaced in Opus 4.7 re-test: 6 user-facing `?` outputs across 4 runs |
+| v0.5.5 | Decision multiplier soft-curve (case-2 → 1.2×, was binary cliff to 1.0×) + contrast conjunction polarity (`but/however/although/despite/except` with `but also/even/too` false-positive guard) + `cerberusConfig` seed/reader (dead path in server fixed) + HU-33 plan-level lock | MEDIUM #1 + #3 + LOW + HU-33 from v0.5.4 plan Phase 2 |
 
-**Test coverage.** 76 cerberus-specific unit + integration tests (consensus 14 + install 13 + stemming 14 + stemming-adversarial 6 + nonce 10 + score-formula 5 + v053-fixes 11 + e2e 4 — includes F3c regression guard for the v0.5.4 render fix).
+**Test coverage.** 102 cerberus-specific unit + integration tests (consensus 15 + install 13 + config 12 + stemming 14 + stemming-adversarial 7 + nonce 10 + score-formula 10 + v053-fixes 19 + e2e 4).
 
-**Known backlog (v0.5.5).** MEDIUM #1 (case-2 decision should trigger partial multiplier 1.2× — currently the 1.5× ↔ 1.0× binary cliff makes 3-way decision splits collapse to `low`), MEDIUM #3 (contrast conjunctions `but / however / although / despite / except` not yet detected by `detectPolarity` → caveat content can be silently dropped from consensus plans), LOW (`choices.cerberusConfig: {}` seed on install/reconfigure for per-machine tuning visibility), HU-33 plan-level test. See [`docs/cerberus-v0.5.4-plan.md`](docs/cerberus-v0.5.4-plan.md) Phase 2.
+**Per-machine tuning.** When `cerberus=on`, the installer seeds `choices.cerberusConfig: {}` in `~/.claude/codex-on-claude/config.json`. Override any of `headWeights / jaccardGroupThreshold / bodyMergeThreshold / decisionMultiplier / decisionPartialMultiplier / costCapTokens` to taste — the server reads these on every consensus call and merges with `DEFAULTS`. Empty seed keeps shipped defaults.
+
+**Known backlog (v0.5.6+).** Cerberus **Full mode** (FU-01~10 + FC-02~05, 14 PENDING-IMPL scenarios: 3-worktree execute + verify + iteration loop) — separate minor release. Embedding-based similarity to bridge Porter Stemmer paraphrase miss (opt-in LLM-judge) — v0.5.6+ candidate.
 
 Disable any time with `codex-on-claude reconfigure --cerberus=off --yes`. Spec: [`docs/cerberus-mode-spec.md`](docs/cerberus-mode-spec.md) (Draft 5). PoC walkthrough: [`docs/cerberus-poc-2026-05-22.md`](docs/cerberus-poc-2026-05-22.md). Re-test results: [`docs/test-execution-results-cerberus-v0.5.3-opus47.md`](docs/test-execution-results-cerberus-v0.5.3-opus47.md).
 

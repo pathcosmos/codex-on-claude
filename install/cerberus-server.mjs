@@ -11,6 +11,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 
 import { consensus as runConsensus } from "./cerberus-consensus.mjs";
+import { consensusOptsFromConfig, costCapFromConfig } from "./cerberus-config.mjs";
 
 const HOME = os.homedir();
 const STATE_DIR = path.join(HOME, ".claude", "codex-on-claude");
@@ -54,13 +55,13 @@ function newRunId() {
 }
 
 async function loadConfig() {
+  // v0.5.5: the pre-v0.5.5 reader pointed at `cfg.choices.cerberus` (the "on"/"off" enum), so
+  // the fallback-object literal was unreachable and user overrides never flowed through. Now
+  // we read the dedicated `choices.cerberusConfig` field via cerberus-config.mjs helpers.
   const cfg = await readJsonSafe(CONFIG_FILE, {});
-  return cfg?.choices?.cerberus || {
-    defaultScope: "head",
-    consensus: "merge-then-tournament",
-    headWeights: { h1: 1.0, h2: 1.0, h3: 1.5 },
-    costCapTokens: 50000,
-    maxIterations: 1,
+  return {
+    consensusOpts: consensusOptsFromConfig(cfg),
+    costCapTokens: costCapFromConfig(cfg),
   };
 }
 
@@ -208,7 +209,7 @@ async function toolConsensus({ run_id, plans, force = false }) {
   }
 
   const cfg = await loadConfig();
-  const result = runConsensus(plans, { headWeights: cfg.headWeights });
+  const result = runConsensus(plans, cfg.consensusOpts);
 
   const cost_used_tokens = plans.reduce((sum, p) => sum + (Number(p.tokens) || 0), 0);
 
@@ -299,7 +300,7 @@ async function updateIndex(entry) {
 export async function runCerberusServer() {
   await ensureDir(RUNS_DIR);
 
-  const server = new McpServer({ name: "cerberus", version: "0.5.4" });
+  const server = new McpServer({ name: "cerberus", version: "0.5.5" });
 
   server.registerTool("init", {
     description: "Start a new Cerberus run. Returns run_id + the three head agent names + head prompts + next_action='spawn_agents'.",

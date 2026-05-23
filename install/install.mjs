@@ -21,6 +21,7 @@ import { runAnalyze, recordDecision, appendLog } from "./analyze.mjs";
 import * as threads from "./threads.mjs";
 import * as hooks from "./hooks.mjs";
 import { renderTree, renderFile } from "./templater.mjs";
+import { seedCerberusConfig } from "./cerberus-config.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1770,6 +1771,12 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   log(`  reviewer: primary ${fmtModelSlot(choices.model.reviewer.primary)}   ${c.dim}fallback ${fmtModelSlot(choices.model.reviewer.fallback)} (locked)${c.reset}`);
 
   const installed = await applyInstallation(manifest, choices, previousState);
+
+  // v0.5.5: seed `choices.cerberusConfig: {}` when cerberus opt-in is ON so users have a
+  // visible, edit-ready stub in config.json. Pre-v0.5.5 the field was undocumented and the
+  // server's loadConfig() reader pointed at the wrong path (cfg.choices.cerberus = "on"/"off"
+  // enum) — fixed in cerberus-server.mjs to consume choices.cerberusConfig instead.
+  seedCerberusConfig(choices);
 
   const newState = {
     version: manifest.version,

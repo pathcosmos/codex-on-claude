@@ -60,7 +60,7 @@ npx codex-on-claude                    # 인터랙티브 설치
 
 자세한 동작은 [README.md](README.md) 의 *"The install questions"* 섹션 (§1–§8) 을 보세요. v0.4.1 부터 subscription + model/reasoning 이 추가되어 4 → 6 으로, v0.5.0 부터 `usageMode` 가 추가되어 6 → 7 로, v0.5.1 부터 `cerberus` 가 추가되어 7 → 8 로 늘었습니다.
 
-### 8. cerberus (v0.5.4, 단일)
+### 8. cerberus (v0.5.5, 단일)
 - `off` — 기본값 (업그레이드 시 사일런트 적용). Cerberus 산출물 미설치.
 - `on` — `codex-cerberus` Skill + 3개 head agent (`cerberus-h{1,2,3}`) + `cerberus` MCP 서버 자동 등록. `/cerberus head "<task>"` 슬래시로 3-head 병렬 plan 합의 호출.
 
@@ -73,8 +73,13 @@ npx codex-on-claude                    # 인터랙티브 설치
 - v0.5.2 — Porter Stemmer (의역 흡수) + nonce challenge (orchestration-layer 위조 차단) + case-4 partial credit (`agreement_score` 13× 개선).
 - v0.5.3 — Polarity tracking + empty-token guard (한국어 단일글자 false-merge 차단) + minority dissent 렌더 + Porter `isV(-1)` 명시.
 - v0.5.4 — case-4 polarity-split disputed 출력 `*(lost to ?)*` → `*(disputed — opposing polarity)*` 정정.
+- v0.5.5 — decision multiplier soft-curve (case-2 → 1.2x, 이전 binary cliff 1.0x) + contrast conjunction polarity (`but/however/although/despite/except` + `but also/even/too` 양립 예외) + `cerberusConfig` seed/reader (server dead path 동시 fix) + HU-33 plan-level lock.
 
-**자동화 76 테스트** (consensus 14 + install 13 + stemming 14 + stemming-adversarial 6 + nonce 10 + score-formula 5 + v053-fixes 11 + e2e 4). v0.5.5 backlog 는 [`docs/cerberus-v0.5.4-plan.md`](docs/cerberus-v0.5.4-plan.md) Phase 2 — MEDIUM #1 (decision multiplier soft-curve), MEDIUM #3 (contrast conjunction polarity), LOW (`cerberusConfig` seed), HU-33 plan-level test.
+**자동화 102 테스트** (consensus 15 + install 13 + config 12 + stemming 14 + stemming-adversarial 7 + nonce 10 + score-formula 10 + v053-fixes 19 + e2e 4).
+
+**Per-machine 튜닝**: `cerberus=on` 일 때 installer 가 `~/.claude/codex-on-claude/config.json` 에 `choices.cerberusConfig: {}` 를 seed. `headWeights / jaccardGroupThreshold / bodyMergeThreshold / decisionMultiplier / decisionPartialMultiplier / costCapTokens` 중 원하는 필드만 override 하면 서버가 consensus 호출 시마다 DEFAULTS 와 merge.
+
+**v0.5.6+ backlog**: Cerberus Full 모드 (FU-01~10 + FC-02~05 14건 PENDING-IMPL — 3-worktree execute/verify/iteration), embedding-based similarity (LLM-judge opt-in).
 
 ### 1. patterns (다중)
 - One-shot read-only review → `codex-review`

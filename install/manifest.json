@@ -1,6 +1,6 @@
 {
   "$schema": "./manifest.schema.json",
-  "version": "0.5.0",
+  "version": "0.5.3",
   "name": "codex-on-claude",
   "description": "Install bridge components that let Claude Code call OpenAI Codex CLI via MCP.",
   "modelMatrixVersion": "2026-05-20",
@@ -45,6 +45,30 @@
           "skills": ["codex-routine"]
         }
       ]
+    },
+    "cerberus": {
+      "type": "single",
+      "label": "Cerberus mode — 3-head planning consensus (v0.5.1)",
+      "choices": [
+        {
+          "key": "off",
+          "label": "Off — codex-cerberus Skill not installed (default for upgrades)",
+          "enable": false
+        },
+        {
+          "key": "on",
+          "label": "On — install codex-cerberus Skill + 3 head agents + register cerberus MCP server",
+          "enable": true
+        }
+      ],
+      "defaults": {
+        "scope": "head",
+        "consensus": "merge-then-tournament",
+        "headWeights": { "h1": 1.0, "h2": 1.0, "h3": 1.5 },
+        "costCapTokens": 50000,
+        "maxIterations": 1,
+        "comment": "Cerberus tuning defaults. Edit ~/.claude/codex-on-claude/config.json:choices.cerberusConfig to override per-machine. The cerberus MCP server reads these on each request."
+      }
     },
     "contextPolicy": {
       "type": "single",
@@ -256,13 +280,43 @@
     "codex-threads": {
       "source": "components/skills/codex-threads",
       "target": "skills/codex-threads"
+    },
+    "codex-cerberus": {
+      "source": "components/skills/codex-cerberus",
+      "target": "skills/codex-cerberus"
     }
   },
-  "mcp": {
-    "name": "codex",
-    "command": "codex",
-    "args": ["mcp-server"],
-    "registerCommand": "claude mcp add --scope user codex -- codex mcp-server",
-    "checkCommand": "claude mcp get codex"
-  }
+  "cerberusAgents": [
+    {
+      "name": "cerberus-h1-claude-only",
+      "source": "components/agents/cerberus-h1-claude-only.md",
+      "target": "agents/cerberus-h1-claude-only.md"
+    },
+    {
+      "name": "cerberus-h2-codex-only",
+      "source": "components/agents/cerberus-h2-codex-only.md",
+      "target": "agents/cerberus-h2-codex-only.md"
+    },
+    {
+      "name": "cerberus-h3-synergy",
+      "source": "components/agents/cerberus-h3-synergy.md",
+      "target": "agents/cerberus-h3-synergy.md"
+    }
+  ],
+  "mcp": [
+    {
+      "name": "codex",
+      "command": "codex",
+      "args": ["mcp-server"],
+      "registerCommand": "claude mcp add --scope user codex -- codex mcp-server",
+      "checkCommand": "claude mcp get codex"
+    },
+    {
+      "name": "cerberus",
+      "command": "codex-on-claude",
+      "args": ["mcp-server", "cerberus"],
+      "registerCommand": "claude mcp add --scope user cerberus -- codex-on-claude mcp-server cerberus",
+      "checkCommand": "claude mcp get cerberus"
+    }
+  ]
 }

@@ -23,7 +23,7 @@ npx --yes codex-on-claude@latest
 The installer:
 
 1. Runs preflight — Node 18.17+, `codex`, `claude`, `codex doctor`, `claude auth status`, and the `codex` MCP server's `Connected` status.
-2. Walks you through **seven questions** with arrow-key navigation (↑/↓, Space to toggle, Enter to confirm). v0.5.0 adds question §7 (`usageMode`) — Codex invocation policy (`none / synergy / auto / max`). Existing installs that upgrade migrate silently to `synergy` (current behavior preserved).
+2. Walks you through **eight questions** with arrow-key navigation (↑/↓, Space to toggle, Enter to confirm). v0.5.0 adds question §7 (`usageMode`) — Codex invocation policy (`none / synergy / auto / max`). v0.5.1 adds question §8 (`cerberus`) — opt-in 3-head planning consensus mode (default `off`). Existing installs migrate silently (`usageMode=synergy`, `cerberus=off`).
 3. Shows a final review screen with `Apply / Edit again / Cancel`.
 4. Copies the selected Skills (and optional Agent / hooks / PreToolUse gate when `usageMode=none`) under `~/.claude/`.
 
@@ -272,6 +272,22 @@ Beyond the headline 4-mode policy, v0.5.0 ships a comprehensive set of fixes fro
 Full details: [`docs/release-notes-0.5.0.md`](docs/release-notes-0.5.0.md) + [`docs/security-review-0.5.0.md`](docs/security-review-0.5.0.md).
 
 **Final verification (post 5 Codex peer review cycles)**: **168 automated test cases** (112 unit + 37 integration + 17 installer-flow + 2 regression with 7 internal cases) all PASS. npm tarball **115 kB / 32 files** (99% reduction from initial build via explicit `files` allowlist + `.npmignore`). **28 total fixes** applied pre-ship across 5 review cycles (F1-F8 → G1-G7 → H1-H7 → B1-B6 → H1-H4 Bash precision → M1-M3 → A1-A4 — see [CHANGELOG.md](CHANGELOG.md) for the full breakdown). Run all tests yourself: `bash install/fixtures/v05/installer-flow/run-flow.sh && node install/fixtures/v05/unit/run-units.mjs && ...`.
+
+---
+
+## Cerberus mode (v0.5.1, opt-in)
+
+When the planning step matters more than execution speed, enable Cerberus Head mode:
+
+```sh
+codex-on-claude reconfigure --cerberus=on --yes
+# Then in a Claude Code session:
+/cerberus head "<task description>"
+```
+
+What happens: codex-on-claude spawns three independent planners in parallel — `cerberus-h1-claude-only` (no Codex), `cerberus-h2-codex-only` (delegates fully to Codex CLI), `cerberus-h3-synergy` (Claude + Codex consultation) — then merges their plans via a deterministic algorithm into a single consensus plan. Cost: ~2–3× a single planner (typically 20–50k tokens total). Plan-only — implementation/verification phases are not included in this release.
+
+Disable any time with `codex-on-claude reconfigure --cerberus=off --yes`. Spec: [`docs/cerberus-mode-spec.md`](docs/cerberus-mode-spec.md). PoC walkthrough: [`docs/cerberus-poc-2026-05-22.md`](docs/cerberus-poc-2026-05-22.md).
 
 ---
 

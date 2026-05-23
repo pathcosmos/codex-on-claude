@@ -226,6 +226,7 @@ function renderReviewTable(prev, draft, hasPrev) {
     ["threads", draft.threads, prev?.threads, false],
     ["usageMode", draft.usageMode, prev?.usageMode, false],
     ["autoTier2", draft.autoTier2LLMProbe ? "on" : "off", prev?.autoTier2LLMProbe === false ? "off" : (prev?.autoTier2LLMProbe === true ? "on" : undefined), false, draft.usageMode === "auto" ? "" : "(auto-mode only)"],
+    ["cerberus", draft.cerberus || "off", prev?.cerberus, false, "(v0.5.1)"],
     ["sub: claude", draft.subscription?.claude, prev?.subscription?.claude, false],
     ["sub: codex", draft.subscription?.codex, prev?.subscription?.codex, false],
     ["codex primary", fmtModelSlot(draft.model?.codex?.primary), fmtModelSlot(prev?.model?.codex?.primary), false],
@@ -393,41 +394,65 @@ async function preflight({ autoYes }) {
   return { codexPath, claudePath };
 }
 
+// v0.5.1: normalize manifest.mcp to an array. Legacy single-object form is preserved for
+// backward-compat; new code paths walk the array so additional MCP servers (e.g. cerberus)
+// can be registered alongside codex.
+function getMcpServers(manifest) {
+  if (!manifest?.mcp) return [];
+  return Array.isArray(manifest.mcp) ? manifest.mcp : [manifest.mcp];
+}
+
+async function checkOneMcp(server) {
+  const r = await run("claude", ["mcp", "get", server.name]);
+  const combined = (r.stdout + r.stderr).toLowerCase();
+  if (r.code === 0 && combined.includes("connected")) {
+    ok(`MCP server "${server.name}" already registered and connected`);
+    return { name: server.name, state: "connected" };
+  }
+  if (r.code === 0) {
+    warn(`MCP server "${server.name}" registered but connection status unclear.`);
+    return { name: server.name, state: "registered-but-unhealthy" };
+  }
+  info(`MCP server "${server.name}" not registered — registration command: ${server.registerCommand}`);
+  return { name: server.name, state: "missing" };
+}
+
 async function checkMcp(manifest) {
   if (!which("claude")) {
     warn("Claude Code CLI (claude) not on PATH. Skipping MCP auto-registration.");
-    return { state: "missing-cli" };
+    return { state: "missing-cli", servers: [] };
   }
-  const r = await run("claude", ["mcp", "get", manifest.mcp.name]);
-  const combined = (r.stdout + r.stderr).toLowerCase();
-  if (r.code === 0 && combined.includes("connected")) {
-    ok(`MCP server "${manifest.mcp.name}" already registered and connected`);
-    return { state: "connected" };
-  }
-  if (r.code === 0) {
-    warn(`MCP server "${manifest.mcp.name}" registered but connection status unclear.`);
-    return { state: "registered-but-unhealthy" };
-  }
-  info(`MCP server "${manifest.mcp.name}" not registered — registration command: ${manifest.mcp.registerCommand}`);
-  return { state: "missing" };
+  const servers = getMcpServers(manifest);
+  const results = [];
+  for (const s of servers) results.push(await checkOneMcp(s));
+  // Backward-compat: report the first server's state at the top level so legacy state file
+  // (newState.mcp.{name,status}) keeps its old shape — older `codex-on-claude status` reads
+  // those single fields. Multi-server status is exposed via `servers[]`.
+  const primary = results[0] || { name: null, state: "missing-cli" };
+  return { state: primary.state, name: primary.name, servers: results };
 }
 
 async function offerMcpRegister(manifest, autoYes) {
   if (!which("claude")) return;
-  const register = autoYes ? true : await askConfirm(`Register MCP server "${manifest.mcp.name}" now?`, true);
-  if (!register) {
-    info("Skipping MCP registration.");
-    return;
-  }
-  const r = await run("claude", ["mcp", "add", "--scope", "user", manifest.mcp.name, "--", manifest.mcp.command, ...manifest.mcp.args]);
-  if (r.code === 0) {
-    ok(`MCP server registered.`);
-  } else {
-    err(`MCP registration failed: ${r.stderr || r.stdout}`);
+  const servers = getMcpServers(manifest);
+  for (const server of servers) {
+    // Skip if already registered (idempotent — re-running install shouldn't double-register).
+    const check = await run("claude", ["mcp", "get", server.name]);
+    if (check.code === 0) {
+      continue;
+    }
+    const register = autoYes ? true : await askConfirm(`Register MCP server "${server.name}" now?`, true);
+    if (!register) {
+      info(`Skipping MCP registration for "${server.name}".`);
+      continue;
+    }
+    const r = await run("claude", ["mcp", "add", "--scope", "user", server.name, "--", server.command, ...(server.args || [])]);
+    if (r.code === 0) ok(`MCP server "${server.name}" registered.`);
+    else err(`MCP registration failed for "${server.name}": ${r.stderr || r.stdout}`);
   }
 }
 
-function selectedSkills(manifest, patterns, improvementLoop, threadsMode) {
+function selectedSkills(manifest, patterns, improvementLoop, threadsMode, cerberus) {
   const set = new Set();
   for (const ch of manifest.questions.patterns.choices) {
     if (patterns.includes(ch.key)) {
@@ -444,7 +469,17 @@ function selectedSkills(manifest, patterns, improvementLoop, threadsMode) {
   if (threadsChoice?.installThreadsSkill) {
     set.add("codex-threads");
   }
+  // v0.5.1: Cerberus opt-in adds the codex-cerberus Skill. The 3 head agents are added
+  // separately in applyInstallation via `cerberusWanted = desiredSkills.has("codex-cerberus")`.
+  if (cerberusEnabled(manifest, cerberus)) {
+    set.add("codex-cerberus");
+  }
   return [...set];
+}
+
+function cerberusEnabled(manifest, cerberusKey) {
+  const ch = manifest.questions.cerberus?.choices.find((c) => c.key === cerberusKey);
+  return ch ? !!ch.enable : false;
 }
 
 function threadsEnabled(manifest, threadsMode) {
@@ -566,7 +601,7 @@ function buildModelVars(state) {
 }
 
 async function applyInstallation(manifest, choices, previousState) {
-  const desiredSkills = new Set(selectedSkills(manifest, choices.patterns, choices.improvementLoop, choices.threads));
+  const desiredSkills = new Set(selectedSkills(manifest, choices.patterns, choices.improvementLoop, choices.threads, choices.cerberus));
   const desiredAgent = shouldInstallAgent(manifest, choices.contextPolicy);
   const desiredLogging = loggingEnabled(manifest, choices.improvementLoop);
   const desiredThreads = threadsEnabled(manifest, choices.threads);
@@ -642,15 +677,22 @@ async function applyInstallation(manifest, choices, previousState) {
     }
   }
 
-  // Agent install / removal — render both primary and fallback variants when desired.
-  const agentDefs = [
-    { def: manifest.agent, slot: "primary" },
-    ...(manifest.agentFallback ? [{ def: manifest.agentFallback, slot: "fallback" }] : []),
+  // Agent install / removal — primary + fallback (reviewer agents) + cerberus heads (v0.5.1).
+  // The reviewer agents are gated on `desiredAgent` (contextPolicy=mixed/summarize); the cerberus
+  // heads are gated on whether the codex-cerberus Skill is in `desiredSkills` — they exist purely
+  // to back that Skill's 3-head spawn pattern.
+  const cerberusWanted = desiredSkills.has("codex-cerberus");
+  const cerberusAgents = (manifest.cerberusAgents || []).map((def) => ({ def, slot: "cerberus", wanted: cerberusWanted }));
+  const reviewerAgents = [
+    { def: manifest.agent, slot: "primary", wanted: desiredAgent },
+    ...(manifest.agentFallback ? [{ def: manifest.agentFallback, slot: "fallback", wanted: desiredAgent }] : []),
   ];
+  const agentDefs = [...reviewerAgents, ...cerberusAgents];
   installed.agents = [];
-  for (const { def, slot } of agentDefs) {
+  for (const { def, slot, wanted } of agentDefs) {
+    if (!def) continue;
     const target = path.join(CLAUDE_DIR, def.target);
-    if (desiredAgent) {
+    if (wanted) {
       const src = path.join(__dirname, def.source);
       if (!(await pathExists(src))) {
         err(`Agent source missing: ${src}`);
@@ -666,8 +708,9 @@ async function applyInstallation(manifest, choices, previousState) {
       }
     }
   }
-  // Backward-compat single-agent field (older state schema readers depend on it).
-  installed.agent = installed.agents[0] || null;
+  // Backward-compat single-agent field — keep pointing to the primary reviewer agent so legacy
+  // readers (older `codex-on-claude status`) still see the codex-reviewer name, not a cerberus head.
+  installed.agent = manifest.agent && installed.agents.includes(manifest.agent.name) ? manifest.agent.name : (installed.agents[0] || null);
 
   // Plugin bundle: deprecated in 0.3.0. Existing 0.2.x bundles are left in place — emit one-time hint.
   if (previousState?.installed?.pluginBundle || previousState?.choices?.shareScope === "team") {
@@ -740,6 +783,18 @@ async function applyInstallation(manifest, choices, previousState) {
     }
   }
 
+  // v0.5.1: when cerberus is turned off, surface an info line if the cerberus MCP server is still
+  // registered. We don't auto-remove (user might be using it from another project / scope) — the
+  // user runs `claude mcp remove cerberus -s user` themselves. Pre-checked via `which claude`.
+  if (!cerberusWanted && which("claude")) {
+    try {
+      const r = await run("claude", ["mcp", "get", "cerberus"]);
+      if (r.code === 0) {
+        warn(`cerberus=off but the cerberus MCP server is still registered. Remove with: claude mcp remove cerberus -s user`);
+      }
+    } catch { /* best-effort */ }
+  }
+
   return installed;
 }
 
@@ -756,6 +811,7 @@ async function cmdStatus() {
   log(`  improvementLoop: ${state.choices.improvementLoop || "(unset)"}`);
   log(`  threads: ${state.choices.threads || "(unset)"}`);
   log(`  usageMode: ${state.choices.usageMode || "(unset)"}${state.choices.usageMode === "auto" ? `  ${c.dim}(Tier 2 probe: ${state.choices.autoTier2LLMProbe === false ? "off" : "on"})${c.reset}` : ""}`);
+  log(`  cerberus: ${state.choices.cerberus || "off"}  ${c.dim}(v0.5.1 multi-head consensus)${c.reset}`);
   if (state.choices.subscription) {
     log(`  subscription: claude=${state.choices.subscription.claude || "?"}  codex=${state.choices.subscription.codex || "?"}`);
   }
@@ -1316,7 +1372,10 @@ async function cmdUninstall(manifest) {
   await removeIfExists(STATE_DIR);
   ok(`Removed: ${removed.length} item(s)`);
   removed.forEach((r) => info(`  - ${r}`));
-  warn("MCP server registration (codex) must be removed manually: `claude mcp remove codex -s user`");
+  const mcpServers = getMcpServers(manifest);
+  for (const s of mcpServers) {
+    warn(`MCP server registration (${s.name}) must be removed manually: \`claude mcp remove ${s.name} -s user\``);
+  }
 }
 
 async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
@@ -1381,6 +1440,10 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
       turnBurn: "3-turn-stop",
       ceilingNoUpside: "warn-and-skip",
     },
+    // v0.5.1: explicit on/off opt-in for the 3-head consensus mode.
+    // Default 'off' on upgrade-from-pre-0.5.1 (silent), 'off' as the wizard default for new installs
+    // — Cerberus is a heavier feature, opt-in is the right ergonomic.
+    cerberus: previousState?.choices?.cerberus || "off",
   };
   if (previousState?.choices?.improvementLoop && previousState.choices.improvementLoop !== defaults.improvementLoop) {
     info(`improvementLoop alias migrated: "${previousState.choices.improvementLoop}" → "${defaults.improvementLoop}"`);
@@ -1405,6 +1468,7 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   // v0.5.0: usage-mode + auto-tier2-llm-probe flags
   const flagUsageMode = typeof args.flags["usage-mode"] === "string" ? args.flags["usage-mode"] : null;
   const flagAutoTier2 = args.flags["auto-tier2-llm-probe"]; // may be true, false, "on", "off", or undefined
+  const flagCerberus = args.flags["cerberus"]; // may be true|"on"|"off"|undefined — explicit opt-in flag
   const autoYes = args.flags["yes"] === true || args.flags["y"] === true;
   if (args.flags["share-scope"] !== undefined) {
     warn(`--share-scope=${args.flags["share-scope"]} is deprecated and ignored since v0.3.`);
@@ -1416,7 +1480,9 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   // MCP check
   log(`\n${c.bold}1. MCP server check${c.reset}`);
   const mcpStatus = await checkMcp(manifest);
-  if (mcpStatus.state === "missing") {
+  // v0.5.1: any server missing → offer registration. offerMcpRegister skips already-registered.
+  const anyMissing = mcpStatus.servers && mcpStatus.servers.some((s) => s.state === "missing");
+  if (mcpStatus.state === "missing" || anyMissing) {
     await offerMcpRegister(manifest, autoYes);
   }
 
@@ -1470,6 +1536,15 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
     else if (flagAutoTier2 === false || flagAutoTier2 === "off" || flagAutoTier2 === "false") choices.autoTier2LLMProbe = false;
     else {
       err(`--auto-tier2-llm-probe=${flagAutoTier2} invalid (use on|off or omit value)`);
+      process.exit(2);
+    }
+  }
+  // v0.5.1: --cerberus=on|off flag — explicit opt-in for the 3-head consensus feature.
+  if (flagCerberus !== undefined) {
+    if (flagCerberus === true || flagCerberus === "on" || flagCerberus === "true") choices.cerberus = "on";
+    else if (flagCerberus === false || flagCerberus === "off" || flagCerberus === "false") choices.cerberus = "off";
+    else {
+      err(`--cerberus=${flagCerberus} invalid (use on|off or omit value)`);
       process.exit(2);
     }
   }
@@ -1589,6 +1664,24 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
       logChange("autoTier2LLMProbe", before, choice, false);
     }
 
+    // ------- Cerberus opt-in (v0.5.1) -------
+    // Explicit on/off question. Migration: existing users on upgrade get the silent default
+    // 'off' (same migration pattern as usageMode in 0.5.0), but explicit `reconfigure` always
+    // shows the prompt.
+    const hadPriorCerberus = previousState?.choices && Object.prototype.hasOwnProperty.call(previousState.choices, "cerberus");
+    const skipCerberusPrompt = hadPriorCerberus === false && !isExplicitReconfigure && hasPrev;
+    if (!autoYes && flagCerberus === undefined && manifest.questions.cerberus && !skipCerberusPrompt) {
+      const before = choices.cerberus;
+      choices.cerberus = await askSingle(
+        manifest.questions.cerberus.label,
+        manifest.questions.cerberus.choices,
+        choices.cerberus || "off"
+      );
+      logChange("cerberus", before, choices.cerberus, false);
+    } else if (skipCerberusPrompt) {
+      info(`cerberus: silent default "off" applied for upgrade (run \`codex-on-claude reconfigure\` or pass \`--cerberus=on\` to enable)`);
+    }
+
     // ------- Subscription + model + reasoning (v0.4.1) -------
     if (!autoYes && !flagSubClaude) {
       const before = choices.subscription.claude;
@@ -1671,6 +1764,7 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
   log(`  improvementLoop: ${choices.improvementLoop}`);
   log(`  threads: ${choices.threads}`);
   log(`  usageMode: ${choices.usageMode}${choices.usageMode === "auto" ? `  ${c.dim}(Tier 2 LLM probe: ${choices.autoTier2LLMProbe ? "on" : "off"})${c.reset}` : ""}`);
+  log(`  cerberus: ${choices.cerberus || "off"}`);
   log(`  subscription: claude=${choices.subscription.claude}  codex=${choices.subscription.codex}`);
   log(`  codex   : primary ${fmtModelSlot(choices.model.codex.primary)}   ${c.dim}fallback ${fmtModelSlot(choices.model.codex.fallback)} (locked)${c.reset}`);
   log(`  reviewer: primary ${fmtModelSlot(choices.model.reviewer.primary)}   ${c.dim}fallback ${fmtModelSlot(choices.model.reviewer.fallback)} (locked)${c.reset}`);
@@ -1681,7 +1775,7 @@ async function cmdInstallOrReconfigure(manifest, args, opts = {}) {
     version: manifest.version,
     choices,
     installed,
-    mcp: { name: manifest.mcp.name, status: mcpStatus.state },
+    mcp: { name: mcpStatus.name || (Array.isArray(manifest.mcp) ? manifest.mcp[0]?.name : manifest.mcp?.name) || null, status: mcpStatus.state, servers: mcpStatus.servers || [] },
   };
   await saveState(newState);
   ok(`Saved state to: ${STATE_FILE}`);
@@ -1725,6 +1819,21 @@ async function main() {
 
   // Keep automation stdout clean while preserving the interactive banner on stderr.
   console.error(`${c.bold}codex-on-claude${c.reset} v${manifest.version}`);
+
+  // v0.5.1: stdio MCP server entrypoint. `codex-on-claude mcp-server <name>` boots an MCP
+  // server over stdio. Currently the only server is "cerberus". Keeping this branch early so
+  // the banner above doesn't pollute the JSON-RPC stream (banner goes to stderr, which is fine
+  // for stdio MCP — but we still want minimum noise during handshake).
+  if (sub === "mcp-server") {
+    const serverName = args._[1];
+    if (serverName === "cerberus") {
+      const mod = await import("./cerberus-server.mjs");
+      await mod.runCerberusServer();
+      return;
+    }
+    err(`Unknown MCP server: "${serverName || "(none)"}". Available: cerberus`);
+    process.exit(2);
+  }
 
   if (sub === "status") {
     await cmdStatus();
@@ -1781,6 +1890,7 @@ Install flags:
   --threads=off|basic|full
   --usage-mode=none|synergy|auto|max                     (v0.5.0 — Codex invocation policy)
   --auto-tier2-llm-probe=on|off                          (v0.5.0 — auto-mode Tier 2 LLM probe)
+  --cerberus=on|off                                      (v0.5.1 — 3-head planning consensus opt-in)
   --subscription-claude=free|pro|max|team|enterprise
   --subscription-codex=free|plus|pro|team
   --codex-model-primary=<id>    --codex-reasoning-primary=<level>
@@ -1834,7 +1944,7 @@ Examples:
   // `flags["usage-mode"]=true` + positional `max`, silently dropping the user-intended value.
   const KNOWN_SUBCOMMANDS = new Set([
     "reconfigure", "config", "status", "doctor", "check", "uninstall", "remove",
-    "analyze", "suggest", "log", "gate", "threads", "help",
+    "analyze", "suggest", "log", "gate", "threads", "help", "mcp-server",
   ]);
   if (sub && !KNOWN_SUBCOMMANDS.has(sub)) {
     err(`Unknown command or positional argument: "${sub}"`);

@@ -2,6 +2,114 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.3] — 2026-05-23
+
+### Added — Cerberus n=2 self-review에서 surfacing된 4 critical fix
+
+v0.5.2 ship 직후 cerberus head 모드로 **자기 자신의 `cerberus-consensus.mjs` 코드를 검증**(메타 검증 4회차 누적) → critical 4건 + medium 5건 식별. 본 patch는 critical 4건 즉시 fix.
+
+- **Polarity flag (Fix #1)** — `STOPWORDS`에서 `"not"` 제거. 각 topic에 `polarity: "+"|"-"` 추적 (`detectPolarity()` 신규 export). `groupByJaccard`가 동일 polarity 토픽만 그룹핑. **결과**: `"use cache"` (+) 와 `"do not use cache"` (-) 가 더 이상 case-1/3 merge 안 됨 → 정반대 의견이 합의로 잘못 분류되던 critical bug 해소.
+- **Empty-token guard (Fix #2)** — `groupByJaccard`가 `anchor=[] && key=[]` 인 그룹에 매칭할 때 `kindHint==="decision"` 인 경우만 허용. Decision A/B/C 단일 글자 케이스는 유지하면서 **한국어 / 짧은 라벨 / 비-ASCII bullet의 false-merge** 차단.
+- **Dissent render (Fix #3)** — `dissent.minority` 섹션이 누락되었던 부분 추가 렌더링, `disputed`의 `lostTo` 미지정 시 `"?"` fallback (`"lost to undefined"` 출력 방지). minority/disputed 구분 가시화.
+- **Porter Stemmer `isV(s, -1)` base case (Fix #4)** — `i < 0` 명시 `return false`. Porter 규약 그대로 leading `y`(예: `yellow`, `young`)를 자음으로 처리. 이전엔 `VOWELS.has(undefined) === false` 우회 동작으로 동일 결과였으나 의도가 명시되지 않아 mis-port 위험. 명시화.
+- **신규 단위 테스트 10건** (`cerberus-v053-fixes.test.mjs`): F1a~F4b + F-INT 통합. polarity/empty-token/render/leading-y 회귀 가드.
+
+### Changed
+
+- **`manifest.json:version`** + **`package.json:version`** → 0.5.3.
+- **`cerberus-server.mjs:runCerberusServer`** MCP advertised version → 0.5.3.
+- **`docs/cerberus-mode-spec.md`** Draft 5 — §3.2 polarity tracking 명시, §3.3 case 분기에 polarity 동등 조건 추가, §3.1 dissent buckets 4종 모두 렌더링 명시.
+- **2 기존 fixture 0.5.3 갱신**: `manifest-schema.test.mjs`, `installer-flow/10-drift-guard.sh`. `atomic-write.test.mjs`는 동적 참조라 변경 불요.
+
+### Test verification
+
+- **Automated test cases: 248 / 248 PASS** (183 unit + 41 integration + 17 installer-flow + 7 regression). v0.5.2 238 → +10 (v053-fixes.test.mjs). 회귀 0건.
+- **cerberus 단위 71 / 71 PASS** (consensus 14 + install 12 + stemming 14 + stemming-adversarial 6 + nonce 10 + score-formula 5 + v053-fixes 10 = 71).
+- **메타 검증 5회차 예정** (별도 task): v0.5.3 코드로 self-review 한 번 더 → polarity/empty-guard 효과 가시화.
+
+### Known limitations remaining (v0.5.4+ backlog)
+
+- **Porter Stemmer over-stemming** — 21 known collision pairs (`general/generic/generation`, `business/busy`, `news/new` 등) 그대로. v0.5.4에서 embedding-based similarity 평가.
+- **Step 4 `ion` rule** 통제 부정확 (h3 단독 발견, medium): `divisional` → `divis` 가능성. 후속 patch.
+- **`bodyLenScore` 곡선 평탄** (h1 단독 발견, low): 100~2000자 모두 0.2~0.33 — 신호 약함. v0.5.4 검토.
+- **`groupByJaccard` anchor 미갱신** (h1 발견, medium): terse h1 anchor + 풍부한 후속 plan의 mis-grouping 가능성. 후속.
+- **Negation scope** (h1+h3 발견, medium): `hasNegationFor`가 body 전체 스캔 — sentence-local window로 좁힐 것. v0.5.4.
+
+## [0.5.2] — 2026-05-23
+
+### Added — Cerberus 3 구조적 약점 보강
+
+v0.5.1 ship 직후 self-critique로 식별된 3 구조적 약점 — 실세션 e2e 검증 부재, SKILL.md prose 의존성, 합의 알고리즘 의역 취약 — 을 한 번에 보강. 0.5.1 → 0.5.2 patch.
+
+- **Porter Stemmer (pure JS)** — `install/cerberus-consensus.mjs:stem()` 신규 export. ~80줄 자체 구현, 의존성 0, tarball +3KB. `normalizeTokens()`가 토큰 정제 후 stemming 적용 → 의역(`deterministic / deterministically`)이 같은 어근으로 정규화 → Jaccard 매칭 가능. 옵션 `{stem: false}` 로 비활성화 (자동화 dual coverage).
+- **nonce challenge (init + consensus contract)** — `mcp__cerberus__init` 응답에 `validation_nonces: {h1, h2, h3}` (각 6-hex) + `nonce_instruction` 추가. 각 head_prompt 끝에 `cerberus-nonce: <value>` 명령 자동 삽입. `mcp__cerberus__consensus`는 각 plan 끝줄에서 nonce 추출 후 검증 — mismatch 1개라도 있으면 명시적 reject. `force: true` 인자로 test/admin 우회 가능. **Skill이 1 head만 spawn하거나 fake plan을 만들어도 백엔드가 즉시 catch.**
+- **case 4 conservative partial credit (agreement_score 공식 보정)** — case 4 risk/reason은 consensus_plan에 채택되므로 case 3와 동등한 0.3 weight 부여. v0.5.1까지 0 가중치로 점수가 비현실적으로 낮았던 문제(PoC 0.43, self-review 0.03) 해소. self-review 재실행 결과: **0.03 low → 0.42 moderate (13배 개선)**.
+- **`install/cerberus-server.mjs:extractNonce()`** — pure-function nonce 추출, 자동화 검증 export.
+- **`install/fixtures/v05/integration/cerberus-end-to-end.test.mjs`** — MCP stdio 실 booting + 5 tools end-to-end 검증 (4 test). 사용자가 다음 세션에서 직접 `/cerberus head` 트리거하기 전 백엔드 contract 보장.
+- **`docs/cerberus-session-restart-checklist.md`** — 사용자 hands-on 8단계 체크리스트 (5분 소요). Claude Code 세션 재시작 후 실세션 e2e 검증.
+- **3 신규 자동화 단위 테스트** — `cerberus-stemming.test.mjs` (14), `cerberus-nonce.test.mjs` (10), `cerberus-score-formula.test.mjs` (5).
+
+### Changed
+
+- **`manifest.json:version`** + **`package.json:version`** — 0.5.1 → 0.5.2.
+- **`install/cerberus-server.mjs:headPrompts()`** — 시그니처에 `nonces` 인자 추가, 각 head prompt 끝에 nonce 명령 자동 삽입.
+- **`install/cerberus-server.mjs:toolInit`** — `nonces` 발급 + `plan.json:nonces` 영속화 + 응답에 `validation_nonces` / `nonce_instruction` 노출.
+- **`install/cerberus-server.mjs:toolConsensus`** — nonce 검증 진입점 추가, 시그니처에 `force` 옵션.
+- **`install/components/skills/codex-cerberus/SKILL.md`** — nonce 보존 명령 + "Do not strip nonce" 가드 추가.
+- **`docs/cerberus-mode-spec.md`** — Draft 3 → Draft 4. §2.1 init 응답 + §2.2 consensus 입력에 nonce 필드, §3.2 Porter Stemmer 명시, §3.4 case4Conservative 공식 갱신.
+- **3 기존 fixture를 0.5.2로 갱신**: `manifest-schema.test.mjs`, `installer-flow/10-drift-guard.sh`. `atomic-write.test.mjs`는 manifest.version 동적 참조라 변경 없음.
+
+### Test verification
+
+- **Automated test cases: 232 / 232 PASS** (167 unit + 41 integration + 17 installer-flow + 7 regression). v0.5.1 199 → +33 (29 unit + 4 integration). 회귀 0건.
+- **메타 self-review 재실행** (`docs/test-execution-results-cerberus-v0.5.2.md`) — v0.5.1 self-review 입력을 v0.5.2 알고리즘에 재투입: score 0.03 low → **0.42 moderate** (13×), 그룹 47 → 10 (-78% stemming 효과).
+- **e2e MCP stdio**: 4 test 시나리오 모두 PASS (initialize → tools/list → init → consensus + nonce verify + force bypass).
+
+### Known limitations remaining (v0.5.3+ backlog)
+
+- 사용자 hands-on 체크리스트 (`docs/cerberus-session-restart-checklist.md`) 8단계 — 사용자가 Claude Code 세션 재시작 후 직접 실행 필요. 자동화 4건은 PASS.
+- "verbatim present" 강제는 여전히 prose — Skill이 consensus_plan을 변형해서 사용자에게 전달할 가능성 ε > 0. v0.5.3에서 presentation_checksum 평가.
+- Embedding-based similarity 미도입 — Porter Stemmer는 어휘 변형만, 의미 변형(예: "fast" ↔ "speedy")은 여전히 분리. 단 stemming + case-4 partial credit으로 13× 개선 달성.
+- Cerberus Full 모드(FU/FC PENDING-IMPL 15건) 여전히 미구현.
+
+## [0.5.1] — 2026-05-22
+
+### Added — Cerberus Head mode (multi-head planning consensus)
+
+- **`/cerberus head "<task>"`** — opt-in 3-head planning consensus. Spawns three independent planners (Claude-only, Codex-only, Claude+Codex synergy) in parallel, then merges via a deterministic consensus algorithm. Plan-only — execute/verify Full mode deferred to a later release. Spec: `docs/cerberus-mode-spec.md`. PoC report: `docs/cerberus-poc-2026-05-22.md`.
+- **New MCP server `cerberus`** — registered automatically when cerberus opt-in is enabled (`claude mcp add --scope user cerberus -- codex-on-claude mcp-server cerberus`). Built on `@modelcontextprotocol/sdk` (^1.29.0). 5 tools exposed: `init / consensus / status / list / inspect`.
+- **New Skill `codex-cerberus`** — single SKILL.md as the entry-point alias; orchestration logic lives in the MCP server, not in prose (intentional — prevents the SKILL-prose-as-policy regression noted in memory).
+- **3 new Agents** — `cerberus-h1-claude-only` (no codex MCP), `cerberus-h2-codex-only` (codex MCP only, no Bash/Edit/Write), `cerberus-h3-synergy` (R1-R6 synergy pattern). Frontmatter `tools` allowlists enforce head isolation.
+- **New install/reconfigure option `cerberus: on|off`** — single-select question with silent `off` default for upgrades. Both interactive (§6 of the wizard) and `--cerberus=on|off` flag supported. Status output shows current state. Off → on transition: Skill + 3 agents + cerberus MCP automatically installed/registered. On → off: Skill + 3 agents removed; cerberus MCP left intact with an explicit warn ("`claude mcp remove cerberus -s user`") so cross-project usage isn't disrupted.
+- **New consensus algorithm module `install/cerberus-consensus.mjs`** — pure-function "Merge non-conflict + Tournament on conflicts". 5 cases: case 1 (3 heads agree, merged), case 2 (3 heads, body-similarity tournament), case 3 (2-head agreement, missing head noted), case 4 (single-head, risk/reason conservatively included, step/decision routed to validated/disputed/minority dissent). Decision groups use exact body equality (Jaccard fails on single-char labels like "A"/"C"). Deterministic — same input → byte-identical `consensus_plan` markdown across runs.
+- **Manifest `mcp` field is now an array.** Backward-compat: a single object is still accepted (normalized via the new `getMcpServers(manifest)` helper). `checkMcp` and `offerMcpRegister` iterate all servers; idempotent — already-registered servers are skipped.
+- **Uninstall MCP warning is now dynamic.** Was hardcoded "codex" in v0.5.0 — now iterates `manifest.mcp[]` so cerberus (and any future servers) are listed.
+
+### Changed
+
+- **`manifest.json:version`** bumped to 0.5.1.
+- **`package.json:version`** bumped to 0.5.1. `dependencies` now includes `@modelcontextprotocol/sdk@^1.29.0`. `files` allowlist adds `install/cerberus-consensus.mjs` + `install/cerberus-server.mjs`.
+- **Review table + Apply summary + `codex-on-claude status`** all show `cerberus: on|off`.
+- **3 hardcoded `0.5.0` fixtures updated** so that future patch bumps don't trigger phantom failures: `manifest-schema.test.mjs` (now expects 0.5.1), `atomic-write.test.mjs` (now reads manifest.version dynamically), `installer-flow/10-drift-guard.sh` (now uses 0.5.1).
+
+### Test verification
+
+- **Automated test cases: 199 / 199 PASS** (138 unit + 37 integration + 17 installer-flow + 7 regression). Up from 173/173 in v0.5.0 — +26 net cerberus tests (`cerberus-consensus.test.mjs`: 14, `cerberus-install.test.mjs`: 12). Zero regression in pre-cerberus suites.
+- **End-to-end manual verification**: cerberus opt-in toggle (`off → on → off`) confirmed; cerberus MCP `claude mcp list` shows `✓ Connected`; smoke-tested MCP stdio JSON-RPC (`initialize`, `tools/list`, `tools/call init`, `tools/call list`) — all return well-formed responses; state directory `~/.claude/codex-on-claude/cerberus/runs/<run-id>/` created with `plan.json` + `events.jsonl` + `index.json`; `chmod 0700` applied via reused `writeJson()`.
+- **PoC validation**: real 3-head spawn against a meta-task ("choose consensus algorithm A/B/C") returned 3 independent plans, all converging on (A). Manual application of the consensus algorithm caught a planning artifact (h1's reference to a stale external test harness path) in the `Dissent.invalid` bucket — algorithm filters demonstrably useful.
+
+### Migration (existing users)
+
+- **`config.json` migration is silent and conservative**: `npx codex-on-claude@latest` from v0.5.0 fills `choices.cerberus: "off"` without prompting (same pattern as `usageMode` migration in 0.5.0).
+- **To enable Cerberus**: run `codex-on-claude reconfigure` (interactive) or `codex-on-claude reconfigure --cerberus=on --yes`. The installer will offer to register the cerberus MCP server on the next run.
+- **To remove later**: `codex-on-claude reconfigure --cerberus=off --yes` then optionally `claude mcp remove cerberus -s user`.
+
+### Known limitations
+
+- **Cerberus Full mode** (Execute + Verify with consensus, with re-plan iteration) — deferred. `scope: "full"` is reserved in spec/CLI but raises an explicit error in `mcp__cerberus__init`.
+- **Headweights / cost cap interactive tuning** — non-interactive defaults only (`{h1:1.0, h2:1.0, h3:1.5}`, costCapTokens=50000). Power users may edit `~/.claude/codex-on-claude/config.json` directly.
+- **Cerberus MCP auto-removal on cerberus=off** — currently warns the user with the manual `claude mcp remove cerberus -s user` command instead of auto-removing (intentional: a cerberus MCP server may be in use across multiple projects, and auto-remove on one project's `off` toggle would disrupt others).
+
 ## [0.5.0] — 2026-05-22
 
 ### Added — Usage-mode policy (largest UX change since 0.4.0)

@@ -56,9 +56,15 @@ npx codex-on-claude                    # 인터랙티브 설치
 
 ---
 
-## 설치 시 묻는 일곱 가지 옵션
+## 설치 시 묻는 여덟 가지 옵션
 
-자세한 동작은 [README.md](README.md) 의 *"The install questions"* 섹션 (§1–§7) 을 보세요. v0.4.1 부터 subscription + model/reasoning 이 추가되어 4 → 6 으로, v0.5.0 부터 `usageMode` 가 추가되어 6 → 7 로 늘었습니다.
+자세한 동작은 [README.md](README.md) 의 *"The install questions"* 섹션 (§1–§8) 을 보세요. v0.4.1 부터 subscription + model/reasoning 이 추가되어 4 → 6 으로, v0.5.0 부터 `usageMode` 가 추가되어 6 → 7 로, v0.5.1 부터 `cerberus` 가 추가되어 7 → 8 로 늘었습니다.
+
+### 8. cerberus (v0.5.1, 단일)
+- `off` — 기본값 (업그레이드 시 사일런트 적용). Cerberus 산출물 미설치.
+- `on` — `codex-cerberus` Skill + 3개 head agent (`cerberus-h{1,2,3}`) + `cerberus` MCP 서버 자동 등록. `/cerberus head "<task>"` 슬래시로 3-head 병렬 plan 합의 호출.
+
+켜고/끄기: `codex-on-claude reconfigure --cerberus=on --yes` 또는 `--cerberus=off --yes`. 비용은 단일 planner 대비 2~3배 (보통 20~50k 토큰). Plan 단계만 처리하며 execute/verify는 추후.
 
 ### 1. patterns (다중)
 - One-shot read-only review → `codex-review`

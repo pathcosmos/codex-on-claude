@@ -54,7 +54,9 @@ describe("H2 atomic write — no .tmp-* artifacts after install", () => {
     // config.json must exist + be valid JSON
     const cfgRaw = await fs.readFile(path.join(stateDir, "config.json"), "utf8");
     const cfg = JSON.parse(cfgRaw);
-    assert.equal(cfg.version, "0.5.0");
+    // Version matches the current manifest (v0.5.1 bumped for Cerberus mode).
+    const manifest = JSON.parse(await fs.readFile(path.resolve("install/manifest.json"), "utf8"));
+    assert.equal(cfg.version, manifest.version);
     assert.equal(cfg.choices.usageMode, "synergy");
   });
 });

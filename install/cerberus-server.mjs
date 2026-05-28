@@ -300,7 +300,7 @@ async function updateIndex(entry) {
 export async function runCerberusServer() {
   await ensureDir(RUNS_DIR);
 
-  const server = new McpServer({ name: "cerberus", version: "0.5.5" });
+  const server = new McpServer({ name: "cerberus", version: "0.5.6" });
 
   server.registerTool("init", {
     description: "Start a new Cerberus run. Returns run_id + the three head agent names + head prompts + next_action='spawn_agents'.",

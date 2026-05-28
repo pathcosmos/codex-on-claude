@@ -68,6 +68,15 @@ TS="$TS/run1" ./run.sh B3-bugfix beta
 node report.mjs "$(ls -t _runs | head -1)" > "_runs/$(ls -t _runs | head -1)/report.md"
 ```
 
+### Per-run timeout (`RUN_TIMEOUT`)
+`run.sh` wraps each `claude -p` in a watchdog so a hung Codex call in a chain scenario (e.g. the
+E-series) can't stall the whole suite. Default **480s**; a timed-out run is killed (whole process
+tree) and scored as a failure, with a `TIMEOUT-KILL` marker in its `stderr.txt` and `timed_out:1`
+in `timing.json`. Override per invocation:
+```sh
+RUN_TIMEOUT=120 TS="$TS/run1" ./run.sh E2-security-harden-loop beta
+```
+
 ## Caveats
 
 See the `## 측정하지 않는 것` section in `docs/test-claude-vs-codex-bench.md`. The harness is intentionally

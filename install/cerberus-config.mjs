@@ -47,12 +47,28 @@ export function seedCerberusConfig(choices) {
 export function consensusOptsFromConfig(cfg) {
   const cc = cfg?.choices?.cerberusConfig;
   const opts = {};
-  if (!cc || typeof cc !== "object") return opts;
-  if (cc.headWeights && typeof cc.headWeights === "object") opts.headWeights = cc.headWeights;
-  if (typeof cc.jaccardGroupThreshold === "number") opts.jaccardGroupThreshold = cc.jaccardGroupThreshold;
-  if (typeof cc.bodyMergeThreshold === "number") opts.bodyMergeThreshold = cc.bodyMergeThreshold;
-  if (typeof cc.decisionMultiplier === "number") opts.decisionMultiplier = cc.decisionMultiplier;
-  if (typeof cc.decisionPartialMultiplier === "number") opts.decisionPartialMultiplier = cc.decisionPartialMultiplier;
+  if (!cc || typeof cc !== "object" || Array.isArray(cc)) return opts;
+
+  // Range/finiteness guards: only emit a key when the value is finite AND within its documented
+  // range, otherwise omit so DEFAULTS apply. `typeof x === "number"` alone would let NaN/Infinity
+  // (non-finite) and out-of-range JSON values (e.g. jaccard 5, multiplier 0.5) override DEFAULTS in
+  // consensus()'s `{ ...DEFAULTS, ...opts }` spread and skew the agreement score.
+  const inUnit = (x) => Number.isFinite(x) && x >= 0 && x <= 1;          // [0, 1]
+  const atLeastOne = (x) => Number.isFinite(x) && x >= 1.0;              // ≥ 1.0
+
+  // headWeights: reject arrays; copy only finite-number members so a stray non-finite member can't
+  // leak through consensus()'s member-merge `{ ...DEFAULTS.headWeights, ...opts.headWeights }`.
+  if (cc.headWeights && typeof cc.headWeights === "object" && !Array.isArray(cc.headWeights)) {
+    const hw = {};
+    for (const k of ["h1", "h2", "h3"]) {
+      if (Number.isFinite(cc.headWeights[k])) hw[k] = cc.headWeights[k];
+    }
+    if (Object.keys(hw).length) opts.headWeights = hw;
+  }
+  if (inUnit(cc.jaccardGroupThreshold)) opts.jaccardGroupThreshold = cc.jaccardGroupThreshold;
+  if (inUnit(cc.bodyMergeThreshold)) opts.bodyMergeThreshold = cc.bodyMergeThreshold;
+  if (atLeastOne(cc.decisionMultiplier)) opts.decisionMultiplier = cc.decisionMultiplier;
+  if (atLeastOne(cc.decisionPartialMultiplier)) opts.decisionPartialMultiplier = cc.decisionPartialMultiplier;
   return opts;
 }
 
@@ -64,6 +80,6 @@ export function consensusOptsFromConfig(cfg) {
  */
 export function costCapFromConfig(cfg) {
   const cc = cfg?.choices?.cerberusConfig;
-  if (cc && typeof cc.costCapTokens === "number" && cc.costCapTokens >= 0) return cc.costCapTokens;
+  if (cc && Number.isFinite(cc.costCapTokens) && cc.costCapTokens >= 0) return cc.costCapTokens;
   return 50000;
 }

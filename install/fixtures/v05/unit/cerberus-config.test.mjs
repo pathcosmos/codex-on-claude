@@ -81,3 +81,52 @@ test("I8h: costCapFromConfig rejects non-numeric / negative", () => {
   assert.equal(costCapFromConfig({ choices: { cerberusConfig: { costCapTokens: -1 } } }), 50000);
   assert.equal(costCapFromConfig({ choices: { cerberusConfig: { costCapTokens: "100k" } } }), 50000);
 });
+
+// ── F1 (v0.5.6): range / finiteness hardening for consensusOptsFromConfig ─────
+
+test("I9a: out-of-range scalars are omitted (fall back to DEFAULTS)", () => {
+  const cfg = { choices: { cerberusConfig: {
+    jaccardGroupThreshold: 5,        // > 1 → omit
+    bodyMergeThreshold: -0.2,        // < 0 → omit
+    decisionMultiplier: 0.5,         // < 1.0 → omit
+    decisionPartialMultiplier: 0.9,  // < 1.0 → omit
+  } } };
+  assert.deepEqual(consensusOptsFromConfig(cfg), {});
+});
+
+test("I9b: in-range scalars at the boundary are kept", () => {
+  const cfg = { choices: { cerberusConfig: {
+    jaccardGroupThreshold: 0,        // 0 ok
+    bodyMergeThreshold: 1,           // 1 ok
+    decisionMultiplier: 1.0,         // 1.0 ok
+    decisionPartialMultiplier: 1.0,  // 1.0 ok
+  } } };
+  assert.deepEqual(consensusOptsFromConfig(cfg), {
+    jaccardGroupThreshold: 0, bodyMergeThreshold: 1, decisionMultiplier: 1.0, decisionPartialMultiplier: 1.0,
+  });
+});
+
+test("I9c: NaN / Infinity scalars are omitted", () => {
+  const cfg = { choices: { cerberusConfig: {
+    jaccardGroupThreshold: NaN, decisionMultiplier: Infinity,
+  } } };
+  assert.deepEqual(consensusOptsFromConfig(cfg), {});
+});
+
+test("I9d: headWeights drops non-finite members, keeps finite ones", () => {
+  const cfg = { choices: { cerberusConfig: { headWeights: { h1: 2.0, h2: NaN, h3: 1.5 } } } };
+  assert.deepEqual(consensusOptsFromConfig(cfg), { headWeights: { h1: 2.0, h3: 1.5 } });
+});
+
+test("I9e: headWeights as array is rejected; all-non-finite headWeights omitted", () => {
+  assert.deepEqual(consensusOptsFromConfig({ choices: { cerberusConfig: { headWeights: [1, 2, 3] } } }), {});
+  assert.deepEqual(consensusOptsFromConfig({ choices: { cerberusConfig: { headWeights: { h1: "x", h2: NaN } } } }), {});
+});
+
+test("I9f: cerberusConfig as array returns {}", () => {
+  assert.deepEqual(consensusOptsFromConfig({ choices: { cerberusConfig: [1, 2] } }), {});
+});
+
+test("I9g: costCapFromConfig rejects Infinity", () => {
+  assert.equal(costCapFromConfig({ choices: { cerberusConfig: { costCapTokens: Infinity } } }), 50000);
+});

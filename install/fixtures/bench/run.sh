@@ -35,6 +35,13 @@ else
 fi
 
 START=$(date +%s)
+# F5: per-run watchdog (seconds). A hung claude/Codex call must not stall the whole suite — macOS
+# ships no `timeout`, so we use a portable background-PID watchdog. Override via RUN_TIMEOUT env.
+RUN_TIMEOUT="${RUN_TIMEOUT:-480}"
+# Recursive tree-kill: claude (and any codex grandchild) lives under the backgrounded subshell, so
+# `kill $pid` / `pkill -P` alone would orphan it. Walk the whole descendant tree.
+kill_tree() { local p="$1" c; for c in $(pgrep -P "$p" 2>/dev/null); do kill_tree "$c"; done; kill -9 "$p" 2>/dev/null || true; }
+
 # bypassPermissions: the workspace is an isolated git scratch dir, so auto-approving
 # Edit/Write/Bash/MCP calls is safe and necessary (dontAsk would deny everything
 # not explicitly allowlisted, and an allowlist would have to enumerate per-arm tools).
@@ -42,10 +49,23 @@ START=$(date +%s)
     claude -p --model haiku --output-format stream-json --verbose \
       --permission-mode bypassPermissions \
       "$(cat "$PROMPT")" \
-      > "$OUT/stream.jsonl" 2> "$OUT/stderr.txt" ) || \
-    echo "[run.sh] claude -p exited non-zero (recorded as failure)" >&2
+      > "$OUT/stream.jsonl" 2> "$OUT/stderr.txt" ) &
+CPID=$!
+WAITED=0; TIMED_OUT=0
+while kill -0 "$CPID" 2>/dev/null; do
+  sleep 5; WAITED=$((WAITED+5))
+  if [ "$WAITED" -ge "$RUN_TIMEOUT" ]; then
+    kill_tree "$CPID"; TIMED_OUT=1
+    echo "[run.sh] TIMEOUT-KILL after ${RUN_TIMEOUT}s (recorded as failure)" | tee -a "$OUT/stderr.txt" >&2
+    break
+  fi
+done
+wait "$CPID" 2>/dev/null || true
+if [ "$TIMED_OUT" -eq 0 ] && [ ! -s "$OUT/stream.jsonl" ]; then
+  echo "[run.sh] claude -p exited non-zero (recorded as failure)" >&2
+fi
 END=$(date +%s)
-echo "{\"wall_s\": $((END-START)), \"started\": $START, \"ended\": $END}" > "$OUT/timing.json"
+echo "{\"wall_s\": $((END-START)), \"started\": $START, \"ended\": $END, \"timed_out\": $TIMED_OUT}" > "$OUT/timing.json"
 
 # --- Post-run artifact capture ------------------------------------------------
 

@@ -175,9 +175,10 @@ assert_eq "pro" "$sub_codex" "subscription.codex preserved (pro)"
 codex_primary="$(json_get "$CFG_FILE" '.choices.model.codex.primary.id')"
 assert_eq "gpt-5" "$codex_primary" "model.codex.primary.id preserved (gpt-5)"
 
-# 5e. version bumped to 0.5.0
+# 5e. version bumped to the current package version (F4: dynamic — survives patch bumps)
+exp_ver="$(node -p "require('$REPO_ROOT/package.json').version")"
 new_version="$(json_get "$CFG_FILE" '.version')"
-assert_eq "0.5.0" "$new_version" "config.version bumped to 0.5.0"
+assert_eq "$exp_ver" "$new_version" "config.version bumped to $exp_ver"
 
 # 5f. PostToolUse auto-log hook still present (marker survived)
 ptu_count="$(jq -r '
@@ -227,7 +228,7 @@ assert_eq "0" "$unrendered" "all ${#skill_files[@]} installed SKILL.md files ren
 # We strip ANSI before matching so the assertion is colour-independent.
 out_plain="$(printf '%s' "$out" | sed -E $'s/\x1B\\[[0-9;]*[A-Za-z]//g')"
 assert_contains "$out_plain" "v0.4.1" "banner mentions previous v0.4.1"
-assert_contains "$out_plain" "v0.5.0" "banner mentions new v0.5.0"
+assert_contains "$out_plain" "$exp_ver" "banner mentions new $exp_ver"
 assert_contains "$out_plain" "→" "banner has migration arrow"
 assert_contains "$out_plain" "Existing install detected" "banner header present"
 

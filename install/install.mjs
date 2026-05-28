@@ -886,6 +886,9 @@ async function cmdThreads(args) {
   const sub = args._[1];
   const f = args.flags;
   const tid = args._[2];
+  // F3 (v0.5.6): validation in threads.mjs (setStatus/setFallback/createOrUpdate …) throws on bad
+  // input; without this catch the raw stack trace leaks to the user. Surface a clean one-liner.
+  try {
   switch (sub) {
     case "list": {
       const items = await threads.listAll({
@@ -1050,6 +1053,10 @@ async function cmdThreads(args) {
   resume <id> ["prompt..."]
   remove|delete <id>
 `);
+  }
+  } catch (e) {
+    err(e && e.message ? e.message : String(e));
+    process.exit(1);
   }
 }
 

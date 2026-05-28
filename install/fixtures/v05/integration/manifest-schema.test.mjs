@@ -13,11 +13,14 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MANIFEST_PATH = path.resolve(__dirname, "../../../manifest.json");
+const PACKAGE_PATH = path.resolve(__dirname, "../../../../package.json");
 
 const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
+const pkg = JSON.parse(readFileSync(PACKAGE_PATH, "utf8"));
 
-test("manifest.version is 0.5.5 (v0.5.5 MEDIUM #1 + #3 + LOW + HU-33 bundle)", () => {
-  assert.equal(manifest.version, "0.5.5");
+test("manifest.version matches package.json (drift guard, version-agnostic)", () => {
+  assert.match(manifest.version, /^\d+\.\d+\.\d+$/, "manifest.version must be semver");
+  assert.equal(manifest.version, pkg.version, "manifest.json and package.json versions must agree");
 });
 
 test("questions.usageMode has 4 choices with the exact expected keys", () => {

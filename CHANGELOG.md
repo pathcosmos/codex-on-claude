@@ -2,6 +2,17 @@
 
 All notable changes to `codex-on-claude` are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.6] — 2026-05-28
+
+### Fixed — v0.5.5 전면 검증(11 페이즈, 260런 성능 벤치 포함) 발견 4건
+
+검증 기록: [`docs/test-execution-results-v0.5.5-full.md`](docs/test-execution-results-v0.5.5-full.md).
+
+- **F1 — `consensusOptsFromConfig` 범위·유한성 검증** (`install/cerberus-config.mjs`). 기존 `typeof x === "number"` 가드는 범위 밖 JSON 값(예: `jaccardGroupThreshold: 5`, `decisionMultiplier: 0.5`)과 `NaN`/`Infinity` 를 통과시켜 `consensus()` 의 `{ ...DEFAULTS, ...opts }` 병합에서 DEFAULTS 를 덮어쓰고 agreement score 를 왜곡할 수 있었음. 이제 `Number.isFinite` + 범위(threshold ∈ [0,1], multiplier ≥ 1.0)를 만족하는 값만 emit(아니면 생략 → DEFAULTS). `headWeights` 는 배열 거부 + 유한 멤버만 정제해 비유한 멤버 누수 차단. `costCapFromConfig` 도 `Infinity` 거부. 신규 단위테스트 7건(I9a–g). *참고: headWeights 통째대체 우려는 `cerberus-consensus.mjs:430` 의 member-merge 로 이미 방어되고 있었음.*
+- **F3 — `threads` CLI 잘못된 입력 클린 에러** (`install/install.mjs:cmdThreads`). `threads status <id> <invalid>` / `fallback <id> <invalid>` 가 `threads.mjs` 의 검증 throw 를 그대로 노출해 raw 스택트레이스를 찍던 문제. dispatch switch 를 try/catch 로 감싸 `✗ invalid status: <x>` 같은 한 줄 메시지 + exit 1 로 처리.
+- **F4 — 회귀 테스트 버전 동적화** (`install/fixtures/v05/regression/01-v041-upgrade.sh`). 기대 버전을 `0.5.0` 으로 하드코딩해 patch bump 마다 실패하던 단언을 `package.json` 버전 동적 읽기로 교체(버전 단언 + 배너 단언). 제품 동작은 정상이었음(테스트 stale).
+- **F5 — bench `run.sh` per-run 타임아웃** (`install/fixtures/bench/run.sh`). 체인형 시나리오에서 Codex 호출 행 시 `claude -p` 가 무한 대기 → 스위트 전체 정지하던 문제(검증 중 9시간+ 행 발생). macOS 에 `timeout` 이 없어 portable 백그라운드 워치독 + 재귀 프로세스-트리 종료(`kill_tree`) 내장. `RUN_TIMEOUT` 환경 노브(기본 480초), 타임아웃 run 은 `TIMEOUT-KILL` 마커 + `timed_out:1` 로 실패 채점. README 문서화.
+
 ## [0.5.5] — 2026-05-23
 
 ### Added — `docs/cerberus-v0.5.4-plan.md` Phase 2 bundle (4 items)
